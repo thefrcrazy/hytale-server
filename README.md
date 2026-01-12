@@ -18,6 +18,7 @@ Script d'installation automatique pour serveur Hytale dédié sous Linux.
 - **Port UDP 5520** ouvert
 
 ## 🚀 Installation Rapide
+### Étape 3 : Plus de détails sur la configuration [INSTALL_SERVER.md](INSTALL_SERVER.md).
 
 ```sh
 # 0. Prérequis
@@ -33,7 +34,7 @@ unzip hytale-server.zip && rm hytale-server.zip
 chmod +x setup-hytale.sh
 ./setup-hytale.sh
 
-# 3. Configurer (voir [INSTALL_SERVER.md](INSTALL_SERVER.md) pour plus de détails)
+# 3. Configurer 
 nano config/server.conf
 nano config/discord.conf
 
