@@ -1,0 +1,45 @@
+[Unit]
+Description=Hytale Dedicated Server
+Documentation=https://support.hytale.com/hc/en-us/articles/45326769420827-Hytale-Server-Manual
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=hytale
+Group=hytale
+WorkingDirectory=/opt/hytale
+Environment="JAVA_HOME=/usr/lib/jvm/java-25-openjdk"
+
+# Commandes de gestion
+ExecStart=/opt/hytale/hytale.sh start
+ExecStop=/opt/hytale/hytale.sh stop
+ExecReload=/opt/hytale/hytale.sh restart
+
+# Politique de redémarrage
+Restart=on-failure
+RestartSec=30
+StartLimitInterval=300
+StartLimitBurst=3
+
+# Timeout pour l'arrêt propre
+TimeoutStopSec=60
+
+# Limites de ressources
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Sécurité
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/hytale
+
+# Journalisation
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hytale
+
+[Install]
+WantedBy=multi-user.target

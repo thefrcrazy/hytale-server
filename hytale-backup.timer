@@ -1,0 +1,16 @@
+[Unit]
+Description=Hytale Server Backup Timer
+Requires=hytale-backup.service
+
+[Timer]
+# Exécuter toutes les 6 heures
+OnCalendar=*-*-* 00/6:00:00
+# Aussi au démarrage (5 minutes après)
+OnBootSec=5min
+# Persistance: exécuter les timers manqués
+Persistent=true
+# Ajouter un peu de randomisation pour éviter les pics
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
