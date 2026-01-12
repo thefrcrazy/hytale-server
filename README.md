@@ -33,7 +33,7 @@ unzip hytale-server.zip && rm hytale-server.zip
 chmod +x setup-hytale.sh
 ./setup-hytale.sh
 
-# 3. Configurer
+# 3. Configurer (voir [INSTALL_SERVER.md](INSTALL_SERVER.md) pour plus de détails)
 nano config/server.conf
 nano config/discord.conf
 
