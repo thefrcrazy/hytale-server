@@ -19,7 +19,7 @@ Script d'installation automatique pour serveur Hytale dédié sous Linux.
 
 ## 🚀 Installation Rapide
 
-```bash
+```sh
 # 1. Télécharger et extraire
 wget https://github.com/VOTRE_USER/hytale-server/releases/latest/download/hytale-server.zip
 unzip hytale-server.zip && cd hytale-server
@@ -72,13 +72,13 @@ hytale-server/
 ## ⚙️ Configuration
 
 ### Java personnalisé (`config/server.conf`)
-```bash
+```sh
 JAVA_PATH="/usr/lib/jvm/temurin-25-jdk-amd64/bin/java"
 JAVA_OPTS="-Xms4G -Xmx8G"
 ```
 
 ### Discord (`config/discord.conf`)
-```bash
+```sh
 WEBHOOK_URL="https://discord.com/api/webhooks/VOTRE_ID/VOTRE_TOKEN"
 ```
 
