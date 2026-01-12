@@ -94,4 +94,4 @@ Voir [INSTALL_SERVER.md](INSTALL_SERVER.md) pour le guide complet.
 
 ## � License
 
-MIT
+[MIT](LICENSE)
