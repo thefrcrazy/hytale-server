@@ -21,7 +21,7 @@ Script d'installation automatique pour serveur Hytale dédié sous Linux.
 
 ```sh
 # 1. Télécharger et extraire
-wget https://github.com/VOTRE_USER/hytale-server/releases/latest/download/hytale-server.zip
+wget https://github.com/thefrcrazy/hytale-server/releases/latest/download/hytale-server.zip
 unzip hytale-server.zip && cd hytale-server
 
 # 2. Lancer l'installation
