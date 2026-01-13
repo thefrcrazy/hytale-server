@@ -76,8 +76,17 @@ check_auth_status() {
     local log_file="${LOGS_DIR}/server.log"
     
     if [[ -f "${log_file}" ]]; then
-        # Chercher des indicateurs d'authentification réussie dans les logs récents
-        if tail -100 "${log_file}" 2>/dev/null | grep -qi "authenticated\|auth.*success\|license.*valid"; then
+        local recent_logs
+        recent_logs=$(tail -n 100 "${log_file}" 2>/dev/null)
+
+        # Vérifier explicitement les erreurs d'authentification
+        if echo "$recent_logs" | grep -qi "Server session token not available\|Server authentication unavailable"; then
+            return 1  # Échec d'authentification détecté
+        fi
+
+        # Chercher des indicateurs d'authentification réussie
+        # On exclut "Starting authenticated flow" qui contient "authenticated" mais n'est pas une preuve de succès
+        if echo "$recent_logs" | grep -v "Starting authenticated flow" | grep -qi "authenticated\|auth.*success\|license.*valid"; then
             return 0  # Authentifié
         fi
     fi
