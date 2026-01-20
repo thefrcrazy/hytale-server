@@ -5,16 +5,22 @@
 #===============================================================================
 
 # ============== DETECTION DU RÉPERTOIRE ==============
-# Si SCRIPT_DIR n'est pas défini, on le calcule
+# LIB_DIR pointe vers le dossier contenant utils.sh
 if [[ -z "${LIB_DIR:-}" ]]; then
     LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
+
+# INSTALL_DIR est le répertoire racine de l'installation (parent de lib/)
+INSTALL_DIR="$(dirname "${LIB_DIR}")"
+
+# SCRIPT_DIR pour compatibilité (peut être écrasé par les scripts appelants)
 if [[ -z "${SCRIPT_DIR:-}" ]]; then
-    SCRIPT_DIR="$(dirname "${LIB_DIR}")"
+    SCRIPT_DIR="${INSTALL_DIR}"
 fi
 
 # ============== CHARGEMENT CONFIGS ==============
-CONFIG_DIR="${SCRIPT_DIR}/config"
+# Toujours charger depuis INSTALL_DIR/config, pas SCRIPT_DIR/config
+CONFIG_DIR="${INSTALL_DIR}/config"
 
 # Charger les configurations si pas déjà fait
 if [[ -z "${_CONFIGS_LOADED:-}" ]]; then
