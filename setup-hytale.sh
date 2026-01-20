@@ -263,20 +263,18 @@ step_3_user() {
     
     current_user=$(whoami)
     
-    # Sur macOS, skip et utiliser l'utilisateur courant
+    # Utiliser automatiquement l'utilisateur courant
+    HYTALE_USER="${current_user}"
     if [ "${OS_NAME}" = "macos" ]; then
-        HYTALE_USER="${current_user}"
         HYTALE_GROUP="staff"
-        echo "macOS détecté - utilisation de ${HYTALE_USER}:${HYTALE_GROUP}"
-        STEP_SUMMARY_3="${HYTALE_USER}:${HYTALE_GROUP} (auto)"
-        sleep 1
-        return
+    else
+        HYTALE_GROUP="${current_user}"
     fi
     
-    HYTALE_USER=$(prompt "Utilisateur" "${current_user}")
-    HYTALE_GROUP=$(prompt "Groupe" "${HYTALE_USER}")
-    
+    echo "Utilisateur: ${HYTALE_USER}:${HYTALE_GROUP}"
     STEP_SUMMARY_3="${HYTALE_USER}:${HYTALE_GROUP}"
+    
+    sleep 1
 }
 
 step_4_dependencies() {
