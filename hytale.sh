@@ -184,12 +184,7 @@ cmd_start() {
         cmd="${cmd} -XX:AOTCache=${AOT_CACHE}"
     fi
     
-    cmd="${cmd} -jar ${SERVER_JAR} --assets ${ASSETS_PATH} --bind ${BIND_ADDRESS} --auth-mode ${AUTH_MODE} --max-players ${MAX_PLAYERS:-20}"
-    
-    # Backup intégré
-    if [[ "${ENABLE_BUILTIN_BACKUP:-true}" == "true" ]]; then
-        cmd="${cmd} --backup --backup-dir ${BACKUPS_DIR} --backup-frequency ${BACKUP_FREQUENCY:-30}"
-    fi
+    cmd="${cmd} -jar ${SERVER_JAR} --assets ${ASSETS_PATH} --bind ${BIND_ADDRESS} --auth-mode ${AUTH_MODE}"
     
     # Démarrage dans screen
     cd "${SERVER_DIR}"
