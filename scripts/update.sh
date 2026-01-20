@@ -352,6 +352,9 @@ cmd_update_scripts() {
     GITHUB_REPO="thefrcrazy/hytale-server"
     RELEASE_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
     
+    # Le script est dans /scripts/, donc la racine est un niveau au-dessus
+    ROOT_DIR="$(dirname "${SCRIPT_DIR}")"
+    
     # Récupérer les informations de la dernière release
     release_info=$(curl -fsSL "${RELEASE_API}" 2>/dev/null)
     
@@ -369,18 +372,18 @@ cmd_update_scripts() {
     
     log "INFO" "Téléchargement de setup-hytale.sh..."
     
-    if curl -fsSL "${setup_url}" -o "${SCRIPT_DIR}/setup-hytale.sh.new"; then
+    if curl -fsSL "${setup_url}" -o "${ROOT_DIR}/setup-hytale.sh.new"; then
         # Remplacer l'ancien fichier
-        mv "${SCRIPT_DIR}/setup-hytale.sh.new" "${SCRIPT_DIR}/setup-hytale.sh"
-        chmod +x "${SCRIPT_DIR}/setup-hytale.sh"
+        mv "${ROOT_DIR}/setup-hytale.sh.new" "${ROOT_DIR}/setup-hytale.sh"
+        chmod +x "${ROOT_DIR}/setup-hytale.sh"
         log "INFO" "setup-hytale.sh mis à jour vers la version ${version}"
         
         echo ""
         echo "Pour réinstaller les scripts (vos configs seront préservées):"
-        echo "  ./setup-hytale.sh"
+        echo "  cd ${ROOT_DIR} && ./setup-hytale.sh"
     else
         log "ERROR" "Échec du téléchargement de setup-hytale.sh"
-        rm -f "${SCRIPT_DIR}/setup-hytale.sh.new"
+        rm -f "${ROOT_DIR}/setup-hytale.sh.new"
         exit 1
     fi
 }
