@@ -12,11 +12,23 @@ GITHUB_REPO="thefrcrazy/hytale-server"
 GITHUB_BRANCH="main"
 GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}"
 
-# Répertoire d'installation par défaut
+# Variables globales
 DEFAULT_INSTALL_DIR="/opt/hytale"
 INSTALL_DIR=""
 HYTALE_USER=""
 HYTALE_GROUP=""
+OS_NAME=""
+OS_PRETTY=""
+
+# Résumés des étapes
+STEP_SUMMARY_1=""
+STEP_SUMMARY_2=""
+STEP_SUMMARY_3=""
+STEP_SUMMARY_4=""
+STEP_SUMMARY_5=""
+STEP_SUMMARY_6=""
+STEP_SUMMARY_7=""
+STEP_SUMMARY_8=""
 
 # Couleurs
 RED='\033[0;31m'
@@ -24,37 +36,85 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+DIM='\033[2m'
 BOLD='\033[1m'
 NC='\033[0m'
+
+# ============== AFFICHAGE ==============
 
 print_header() {
     clear
     printf "${CYAN}"
     echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║                                                            ║"
     echo "║           🎮 HYTALE DEDICATED SERVER SETUP 🎮              ║"
-    echo "║                                                            ║"
     echo "╚════════════════════════════════════════════════════════════╝"
     printf "${NC}\n"
 }
 
-print_step() {
-    step_num="$1"
-    step_name="$2"
-    printf "\n${BOLD}${BLUE}━━━ Étape ${step_num}: ${step_name} ━━━${NC}\n\n"
+print_progress() {
+    current_step="$1"
+    
+    print_header
+    
+    # Afficher le récap des étapes terminées
+    if [ -n "${STEP_SUMMARY_1}" ]; then
+        printf "${DIM}1. Système:       ${STEP_SUMMARY_1}${NC}\n"
+    fi
+    if [ -n "${STEP_SUMMARY_2}" ]; then
+        printf "${DIM}2. Répertoire:    ${STEP_SUMMARY_2}${NC}\n"
+    fi
+    if [ -n "${STEP_SUMMARY_3}" ]; then
+        printf "${DIM}3. Utilisateur:   ${STEP_SUMMARY_3}${NC}\n"
+    fi
+    if [ -n "${STEP_SUMMARY_4}" ]; then
+        printf "${DIM}4. Dépendances:   ${STEP_SUMMARY_4}${NC}\n"
+    fi
+    if [ -n "${STEP_SUMMARY_5}" ]; then
+        printf "${DIM}5. Java:          ${STEP_SUMMARY_5}${NC}\n"
+    fi
+    if [ -n "${STEP_SUMMARY_6}" ]; then
+        printf "${DIM}6. Téléchargement: ${STEP_SUMMARY_6}${NC}\n"
+    fi
+    if [ -n "${STEP_SUMMARY_7}" ]; then
+        printf "${DIM}7. Configuration: ${STEP_SUMMARY_7}${NC}\n"
+    fi
+    if [ -n "${STEP_SUMMARY_8}" ]; then
+        printf "${DIM}8. Systemd:       ${STEP_SUMMARY_8}${NC}\n"
+    fi
+    
+    # Séparateur si au moins une étape terminée
+    if [ -n "${STEP_SUMMARY_1}" ]; then
+        echo ""
+    fi
+    
+    # Étape actuelle
+    printf "${BOLD}${BLUE}━━━ Étape ${current_step}/8: "
+    case "${current_step}" in
+        1) printf "Détection du système" ;;
+        2) printf "Répertoire d'installation" ;;
+        3) printf "Configuration utilisateur" ;;
+        4) printf "Dépendances" ;;
+        5) printf "Java" ;;
+        6) printf "Téléchargement" ;;
+        7) printf "Configuration" ;;
+        8) printf "Services Systemd" ;;
+    esac
+    printf " ━━━${NC}\n\n"
 }
 
-log_info() { printf "${BLUE}[INFO]${NC} %s\n" "$*"; }
-log_success() { printf "${GREEN}[OK]${NC} %s\n" "$*"; }
-log_warn() { printf "${YELLOW}[WARN]${NC} %s\n" "$*"; }
-log_error() { printf "${RED}[ERROR]${NC} %s\n" "$*"; }
+log_info() { echo "[INFO] $*"; }
+log_success() { echo "[OK] $*"; }
+log_warn() { echo "[WARN] $*"; }
+log_error() { echo "[ERROR] $*"; }
 
 prompt() {
     msg="$1"
     default="$2"
-    printf "${CYAN}➜${NC} ${msg}"
-    [ -n "${default}" ] && printf " ${YELLOW}[${default}]${NC}"
-    printf ": "
+    if [ -n "${default}" ]; then
+        printf ">> %s [%s]: " "${msg}" "${default}"
+    else
+        printf ">> %s: " "${msg}"
+    fi
     read -r response
     [ -z "${response}" ] && response="${default}"
     echo "${response}"
@@ -64,11 +124,10 @@ prompt_yn() {
     msg="$1"
     default="$2"
     while true; do
-        printf "${CYAN}➜${NC} ${msg} "
         if [ "${default}" = "y" ]; then
-            printf "${YELLOW}[Y/n]${NC}: "
+            printf ">> %s [Y/n]: " "${msg}"
         else
-            printf "${YELLOW}[y/N]${NC}: "
+            printf ">> %s [y/N]: " "${msg}"
         fi
         read -r response
         [ -z "${response}" ] && response="${default}"
@@ -85,7 +144,6 @@ detect_os() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         OS_NAME="${ID}"
-        OS_VERSION="${VERSION_ID:-}"
         OS_PRETTY="${PRETTY_NAME:-${OS_NAME}}"
     elif [ -f /etc/debian_version ]; then
         OS_NAME="debian"
@@ -139,7 +197,7 @@ step_welcome() {
     echo "  • Télécharger les scripts depuis GitHub"
     echo "  • Configurer les services systemd"
     echo ""
-    echo "Source: ${BOLD}github.com/${GITHUB_REPO}${NC}"
+    printf "Source: ${BOLD}github.com/${GITHUB_REPO}${NC}\n"
     echo ""
     
     if ! prompt_yn "Continuer l'installation ?" "y"; then
@@ -148,32 +206,35 @@ step_welcome() {
     fi
 }
 
-step_detect_system() {
-    print_step "1" "Détection du système"
+step_1_detect() {
+    print_progress 1
     
     detect_os
     
-    echo "Système d'exploitation: ${BOLD}${OS_PRETTY}${NC}"
+    priv_status="utilisateur"
+    check_root && priv_status="root"
     
-    if check_root; then
-        echo "Privilèges:             ${GREEN}root${NC}"
-    else
-        echo "Privilèges:             ${YELLOW}utilisateur normal${NC}"
+    printf "Système: ${BOLD}${OS_PRETTY}${NC}\n"
+    printf "Privilèges: ${BOLD}${priv_status}${NC}\n"
+    
+    if ! check_root; then
         log_warn "Certaines fonctionnalités nécessitent sudo"
     fi
     
     echo ""
+    STEP_SUMMARY_1="${OS_PRETTY} (${priv_status})"
+    
+    sleep 1
 }
 
-step_install_dir() {
-    print_step "2" "Répertoire d'installation"
+step_2_install_dir() {
+    print_progress 2
     
     current_dir="$(pwd)"
     
-    echo "Options :"
-    echo "  1) Répertoire actuel: ${current_dir}"
-    echo "  2) Chemin par défaut: ${DEFAULT_INSTALL_DIR}"
-    echo "  3) Autre chemin personnalisé"
+    echo "1) Répertoire actuel: ${current_dir}"
+    echo "2) Chemin par défaut: ${DEFAULT_INSTALL_DIR}"
+    echo "3) Autre chemin"
     echo ""
     
     choice=$(prompt "Votre choix" "1")
@@ -181,55 +242,56 @@ step_install_dir() {
     case "${choice}" in
         1) INSTALL_DIR="${current_dir}" ;;
         2) INSTALL_DIR="${DEFAULT_INSTALL_DIR}" ;;
-        3) INSTALL_DIR=$(prompt "Chemin d'installation" "${DEFAULT_INSTALL_DIR}") ;;
+        3) INSTALL_DIR=$(prompt "Chemin" "${DEFAULT_INSTALL_DIR}") ;;
         *) INSTALL_DIR="${current_dir}" ;;
     esac
     
-    echo ""
-    log_info "Installation dans: ${BOLD}${INSTALL_DIR}${NC}"
-    
     if [ ! -d "${INSTALL_DIR}" ]; then
-        if prompt_yn "Le dossier n'existe pas. Le créer ?" "y"; then
+        if prompt_yn "Créer le dossier ?" "y"; then
             mkdir -p "${INSTALL_DIR}"
-            log_success "Dossier créé"
         else
             log_error "Installation annulée"
             exit 1
         fi
     fi
+    
+    STEP_SUMMARY_2="${INSTALL_DIR}"
 }
 
-step_user_config() {
-    print_step "3" "Configuration utilisateur"
+step_3_user() {
+    print_progress 3
     
     current_user=$(whoami)
     
-    echo "L'utilisateur qui exécutera le serveur :"
-    echo ""
+    # Sur macOS, skip et utiliser l'utilisateur courant
+    if [ "${OS_NAME}" = "macos" ]; then
+        HYTALE_USER="${current_user}"
+        HYTALE_GROUP="staff"
+        echo "macOS détecté - utilisation de ${HYTALE_USER}:${HYTALE_GROUP}"
+        STEP_SUMMARY_3="${HYTALE_USER}:${HYTALE_GROUP} (auto)"
+        sleep 1
+        return
+    fi
     
     HYTALE_USER=$(prompt "Utilisateur" "${current_user}")
     HYTALE_GROUP=$(prompt "Groupe" "${HYTALE_USER}")
     
-    echo ""
-    log_info "Utilisateur: ${HYTALE_USER}:${HYTALE_GROUP}"
+    STEP_SUMMARY_3="${HYTALE_USER}:${HYTALE_GROUP}"
 }
 
-step_dependencies() {
-    print_step "4" "Dépendances"
-    
-    echo "Vérification des dépendances requises..."
-    echo ""
+step_4_dependencies() {
+    print_progress 4
     
     deps_missing=""
-    deps_ok=""
+    deps_count=0
     
     for dep in curl unzip screen; do
         if command -v "${dep}" >/dev/null 2>&1; then
             printf "  ${GREEN}✓${NC} ${dep}\n"
-            deps_ok="${deps_ok} ${dep}"
         else
-            printf "  ${RED}✗${NC} ${dep} ${YELLOW}(manquant)${NC}\n"
+            printf "  ${RED}✗${NC} ${dep}\n"
             deps_missing="${deps_missing} ${dep}"
+            deps_count=$((deps_count + 1))
         fi
     done
     
@@ -239,64 +301,55 @@ step_dependencies() {
         if check_root; then
             if prompt_yn "Installer les dépendances manquantes ?" "y"; then
                 for dep in ${deps_missing}; do
-                    printf "Installation de ${dep}..."
+                    printf "  Installation ${dep}..."
                     if install_package "${dep}"; then
                         printf " ${GREEN}OK${NC}\n"
                     else
                         printf " ${RED}ÉCHEC${NC}\n"
                     fi
                 done
+                STEP_SUMMARY_4="Installées"
             else
-                log_error "Dépendances requises non installées"
+                log_error "Dépendances requises"
                 exit 1
             fi
         else
-            log_error "Exécutez avec sudo pour installer les dépendances"
+            log_error "Exécutez avec sudo"
             exit 1
         fi
     else
-        log_success "Toutes les dépendances sont installées"
+        STEP_SUMMARY_4="OK"
     fi
     
-    # Optionnelles
-    echo ""
-    echo "Dépendances optionnelles :"
-    
-    for dep in pigz jq; do
-        if command -v "${dep}" >/dev/null 2>&1; then
-            printf "  ${GREEN}✓${NC} ${dep}\n"
-        else
-            printf "  ${YELLOW}○${NC} ${dep} ${YELLOW}(optionnel)${NC}\n"
-        fi
-    done
-    
-    if check_root; then
+    # Optionnel: pigz (skip sur macOS car Homebrew + sudo = problème)
+    if [ "${OS_NAME}" != "macos" ] && ! command -v pigz >/dev/null 2>&1 && check_root; then
         echo ""
-        if prompt_yn "Installer pigz (backups plus rapides) ?" "y"; then
-            install_package pigz && log_success "pigz installé"
+        if prompt_yn "Installer pigz (backups rapides) ?" "y"; then
+            install_package pigz
+            STEP_SUMMARY_4="${STEP_SUMMARY_4} + pigz"
         fi
     fi
 }
 
-step_java() {
-    print_step "5" "Java"
-    
-    echo "Vérification de Java..."
-    echo ""
+step_5_java() {
+    print_progress 5
     
     java_ok=0
+    java_info="Non installé"
     
     if command -v java >/dev/null 2>&1; then
-        java_version=$(java --version 2>&1 | head -n1)
+        java_version=$(java --version 2>&1 | head -n1 || echo "?")
         java_major=$(echo "${java_version}" | grep -oE '[0-9]+' | head -n1 || echo "0")
         
-        echo "Version détectée: ${java_version}"
+        printf "Version: ${java_version}\n"
         
         if [ "${java_major}" -ge 25 ] 2>/dev/null; then
             log_success "Java ${java_major} compatible"
             java_ok=1
+            java_info="Java ${java_major} ✓"
         else
-            log_warn "Java ${java_major} détecté, mais Java 25+ est requis"
+            log_warn "Java ${java_major} < 25 requis"
+            java_info="Java ${java_major} (upgrade needed)"
         fi
     else
         log_warn "Java non installé"
@@ -304,29 +357,21 @@ step_java() {
     
     if [ ${java_ok} -eq 0 ]; then
         echo ""
-        echo "Installez Java 25 depuis: ${BOLD}https://adoptium.net/${NC}"
-        echo ""
-        case "${OS_NAME}" in
-            ubuntu|debian)
-                echo "Commande suggérée:"
-                echo "  wget -qO- https://packages.adoptium.net/artifactory/api/gpg/key/public | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/adoptium.gpg"
-                echo "  echo 'deb https://packages.adoptium.net/artifactory/deb \$(lsb_release -cs) main' | sudo tee /etc/apt/sources.list.d/adoptium.list"
-                echo "  sudo apt update && sudo apt install temurin-25-jdk"
-                ;;
-        esac
-        
+        printf "Installez Java 25: ${BOLD}https://adoptium.net/${NC}\n"
         echo ""
         if ! prompt_yn "Continuer sans Java ?" "y"; then
             exit 1
         fi
     fi
+    
+    STEP_SUMMARY_5="${java_info}"
 }
 
-step_download() {
-    print_step "6" "Téléchargement"
+step_6_download() {
+    print_progress 6
     
-    echo "Téléchargement des fichiers depuis GitHub..."
-    echo ""
+    downloaded=0
+    failed=0
     
     download_file() {
         local_path="$1"
@@ -336,9 +381,10 @@ step_download() {
         
         if curl -fsSL "${GITHUB_RAW}/${remote_path}" -o "${INSTALL_DIR}/${local_path}" 2>/dev/null; then
             printf "  ${GREEN}✓${NC} ${local_path}\n"
+            downloaded=$((downloaded + 1))
         else
             printf "  ${RED}✗${NC} ${local_path}\n"
-            return 1
+            failed=$((failed + 1))
         fi
     }
     
@@ -366,14 +412,14 @@ step_download() {
     download_file "README.md" "README.md"
     download_file "LICENSE" "LICENSE"
     
-    echo ""
-    log_success "Téléchargement terminé"
+    STEP_SUMMARY_6="${downloaded} fichiers"
+    [ ${failed} -gt 0 ] && STEP_SUMMARY_6="${STEP_SUMMARY_6} (${failed} échecs)"
 }
 
-step_configure() {
-    print_step "7" "Configuration"
+step_7_configure() {
+    print_progress 7
     
-    echo "Mise à jour des chemins..."
+    printf "Configuration en cours...\n"
     
     # server.conf
     if [ "$(uname)" = "Darwin" ]; then
@@ -409,47 +455,68 @@ step_configure() {
     mkdir -p "${INSTALL_DIR}/logs/archive"
     mkdir -p "${INSTALL_DIR}/assets"
     
-    log_success "Configuration terminée"
+    log_success "Terminé"
+    
+    STEP_SUMMARY_7="OK"
 }
 
-step_systemd() {
-    print_step "8" "Services Systemd"
+step_8_systemd() {
+    print_progress 8
     
     if [ ! -d "/etc/systemd/system" ]; then
-        log_warn "Systemd non disponible sur ce système"
+        log_warn "Systemd non disponible"
+        STEP_SUMMARY_8="Non disponible"
         return
     fi
     
     if ! check_root; then
-        log_warn "Exécutez avec sudo pour installer les services systemd"
+        log_warn "Nécessite sudo"
+        STEP_SUMMARY_8="Ignoré (pas root)"
         return
     fi
     
     if prompt_yn "Installer les services systemd ?" "y"; then
         cp "${INSTALL_DIR}/services/"*.service /etc/systemd/system/ 2>/dev/null
         cp "${INSTALL_DIR}/services/"*.timer /etc/systemd/system/ 2>/dev/null
-        
         systemctl daemon-reload
         
-        if prompt_yn "Activer le démarrage automatique au boot ?" "y"; then
+        services_enabled=""
+        
+        if prompt_yn "Démarrage auto au boot ?" "y"; then
             systemctl enable hytale.service 2>/dev/null || true
-            log_success "Service hytale activé"
+            services_enabled="hytale"
         fi
         
-        if prompt_yn "Activer les backups automatiques (6h) ?" "y"; then
+        if prompt_yn "Backups auto (6h) ?" "y"; then
             systemctl enable hytale-backup.timer 2>/dev/null || true
-            log_success "Timer backup activé"
+            services_enabled="${services_enabled} backup"
         fi
         
-        if prompt_yn "Activer le watchdog (2min) ?" "y"; then
+        if prompt_yn "Watchdog (2min) ?" "y"; then
             systemctl enable hytale-watchdog.timer 2>/dev/null || true
-            log_success "Timer watchdog activé"
+            services_enabled="${services_enabled} watchdog"
         fi
+        
+        STEP_SUMMARY_8="${services_enabled:-Aucun}"
+    else
+        STEP_SUMMARY_8="Ignoré"
     fi
 }
 
 step_complete() {
     print_header
+    
+    # Récap final
+    printf "${DIM}"
+    echo "1. Système:        ${STEP_SUMMARY_1}"
+    echo "2. Répertoire:     ${STEP_SUMMARY_2}"
+    echo "3. Utilisateur:    ${STEP_SUMMARY_3}"
+    echo "4. Dépendances:    ${STEP_SUMMARY_4}"
+    echo "5. Java:           ${STEP_SUMMARY_5}"
+    echo "6. Téléchargement: ${STEP_SUMMARY_6}"
+    echo "7. Configuration:  ${STEP_SUMMARY_7}"
+    echo "8. Systemd:        ${STEP_SUMMARY_8}"
+    printf "${NC}\n"
     
     printf "${GREEN}"
     echo "═══════════════════════════════════════════════════════════"
@@ -457,23 +524,12 @@ step_complete() {
     echo "═══════════════════════════════════════════════════════════"
     printf "${NC}\n"
     
-    echo "Répertoire: ${BOLD}${INSTALL_DIR}${NC}"
+    echo "Prochaines étapes :"
     echo ""
-    echo "${BOLD}Prochaines étapes :${NC}"
-    echo ""
-    echo "  1. Configurer le serveur :"
-    echo "     ${CYAN}nano ${INSTALL_DIR}/config/server.conf${NC}"
-    echo ""
-    echo "  2. Configurer Discord (optionnel) :"
-    echo "     ${CYAN}nano ${INSTALL_DIR}/config/discord.conf${NC}"
-    echo ""
-    echo "  3. Télécharger le serveur Hytale :"
-    echo "     ${CYAN}cd ${INSTALL_DIR} && ./scripts/update.sh download${NC}"
-    echo ""
-    echo "  4. Démarrer le serveur :"
-    echo "     ${CYAN}./hytale.sh start${NC}"
-    echo ""
-    echo "═══════════════════════════════════════════════════════════"
+    printf "  1. ${CYAN}nano ${INSTALL_DIR}/config/server.conf${NC}\n"
+    printf "  2. ${CYAN}nano ${INSTALL_DIR}/config/discord.conf${NC}\n"
+    printf "  3. ${CYAN}cd ${INSTALL_DIR} && ./scripts/update.sh download${NC}\n"
+    printf "  4. ${CYAN}./hytale.sh start${NC}\n"
     echo ""
 }
 
@@ -481,14 +537,14 @@ step_complete() {
 
 main() {
     step_welcome
-    step_detect_system
-    step_install_dir
-    step_user_config
-    step_dependencies
-    step_java
-    step_download
-    step_configure
-    step_systemd
+    step_1_detect
+    step_2_install_dir
+    step_3_user
+    step_4_dependencies
+    step_5_java
+    step_6_download
+    step_7_configure
+    step_8_systemd
     step_complete
 }
 
