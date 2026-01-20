@@ -77,6 +77,126 @@ else
     JAVA_CMD="java"
 fi
 
+# ============== SYSTÈME DE TRADUCTION ==============
+# LANG_CODE: fr (Français) ou en (English)
+: "${LANG_CODE:=fr}"
+
+t() {
+    local key="$1"
+    case "${LANG_CODE}" in
+        en|EN)
+            case "${key}" in
+                # Général
+                "server_starting") echo "Server is starting..." ;;
+                "server_started") echo "Server is now online and ready for players." ;;
+                "server_stopped") echo "Server has been stopped properly." ;;
+                "server_restarting") echo "Server is restarting..." ;;
+                "server_not_running") echo "Server is not running." ;;
+                "server_already_running") echo "Server is already running." ;;
+                "server_not_found") echo "Server not found, automatic download..." ;;
+                "download_failed") echo "Download failed" ;;
+                "script_not_found") echo "Download script not found" ;;
+                "assets_not_found") echo "Assets not found" ;;
+                "disk_space_low") echo "Insufficient disk space" ;;
+                "disk_space_ok") echo "Disk space OK" ;;
+                "available") echo "available" ;;
+                "required") echo "required" ;;
+                "starting_cancelled") echo "Start cancelled: insufficient disk space" ;;
+                "download_info") echo "If this is the first time, OAuth2 authentication will be required." ;;
+                "downloading_server") echo "DOWNLOADING SERVER" ;;
+                # Backup
+                "backup_started") echo "Starting backup..." ;;
+                "backup_completed") echo "Backup completed" ;;
+                "backup_failed") echo "Backup failed" ;;
+                "backup_cleaned") echo "Old backups cleaned" ;;
+                "backup_restored") echo "Backup restored" ;;
+                # Watchdog
+                "watchdog_check") echo "Watchdog: checking server..." ;;
+                "watchdog_restart") echo "Watchdog: server crashed, restarting..." ;;
+                "watchdog_ok") echo "Watchdog: server OK" ;;
+                # Updates
+                "update_checking") echo "Checking for updates..." ;;
+                "update_available") echo "Update available" ;;
+                "update_current") echo "Server is up to date." ;;
+                "installed") echo "Installed" ;;
+                "available_version") echo "Available" ;;
+                # Players
+                "no_players") echo "No players connected." ;;
+                "players_online") echo "player(s) online" ;;
+                "players_connected") echo "Players connected" ;;
+                # Status
+                "status_online") echo "ONLINE" ;;
+                "status_offline") echo "OFFLINE" ;;
+                "status_starting") echo "STARTING" ;;
+                # Maintenance
+                "maintenance") echo "Maintenance" ;;
+                "log_rotation") echo "Log rotation" ;;
+                # Erreurs
+                "java_not_found") echo "Java not found" ;;
+                "java_version_low") echo "Java version too low" ;;
+                "deps_missing") echo "Missing dependencies" ;;
+                # Fin
+                *) echo "${key}" ;;
+            esac
+            ;;
+        *)
+            case "${key}" in
+                # Général
+                "server_starting") echo "Le serveur est en cours de démarrage..." ;;
+                "server_started") echo "Le serveur est maintenant opérationnel et prêt à accueillir des joueurs." ;;
+                "server_stopped") echo "Le serveur a été arrêté proprement." ;;
+                "server_restarting") echo "Le serveur redémarre..." ;;
+                "server_not_running") echo "Le serveur n'est pas en cours d'exécution." ;;
+                "server_already_running") echo "Le serveur est déjà en cours d'exécution." ;;
+                "server_not_found") echo "Serveur non trouvé, téléchargement automatique..." ;;
+                "download_failed") echo "Échec du téléchargement" ;;
+                "script_not_found") echo "Script de téléchargement introuvable" ;;
+                "assets_not_found") echo "Assets introuvables" ;;
+                "disk_space_low") echo "Espace disque insuffisant" ;;
+                "disk_space_ok") echo "Espace disque OK" ;;
+                "available") echo "disponible" ;;
+                "required") echo "requis" ;;
+                "starting_cancelled") echo "Démarrage annulé: espace disque insuffisant" ;;
+                "download_info") echo "Si c'est la première fois, une authentification OAuth2 sera requise." ;;
+                "downloading_server") echo "TÉLÉCHARGEMENT DU SERVEUR" ;;
+                # Backup
+                "backup_started") echo "Démarrage de la sauvegarde..." ;;
+                "backup_completed") echo "Sauvegarde terminée" ;;
+                "backup_failed") echo "Échec de la sauvegarde" ;;
+                "backup_cleaned") echo "Anciennes sauvegardes nettoyées" ;;
+                "backup_restored") echo "Sauvegarde restaurée" ;;
+                # Watchdog
+                "watchdog_check") echo "Watchdog: vérification du serveur..." ;;
+                "watchdog_restart") echo "Watchdog: serveur crashé, redémarrage..." ;;
+                "watchdog_ok") echo "Watchdog: serveur OK" ;;
+                # Updates
+                "update_checking") echo "Vérification des mises à jour..." ;;
+                "update_available") echo "Mise à jour disponible" ;;
+                "update_current") echo "Le serveur est à jour." ;;
+                "installed") echo "Installé" ;;
+                "available_version") echo "Disponible" ;;
+                # Players
+                "no_players") echo "Aucun joueur connecté." ;;
+                "players_online") echo "joueur(s) en ligne" ;;
+                "players_connected") echo "Joueurs connectés" ;;
+                # Status
+                "status_online") echo "EN LIGNE" ;;
+                "status_offline") echo "HORS LIGNE" ;;
+                "status_starting") echo "DÉMARRAGE" ;;
+                # Maintenance
+                "maintenance") echo "Maintenance" ;;
+                "log_rotation") echo "Rotation des logs" ;;
+                # Erreurs
+                "java_not_found") echo "Java non trouvé" ;;
+                "java_version_low") echo "Version Java trop basse" ;;
+                "deps_missing") echo "Dépendances manquantes" ;;
+                # Fin
+                *) echo "${key}" ;;
+            esac
+            ;;
+    esac
+}
+
 # ============== FONCTIONS DE LOG ==============
 
 log() {

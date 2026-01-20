@@ -135,46 +135,45 @@ cmd_start() {
     check_dependencies || exit 1
     
     if is_running; then
-        log_warn "Le serveur est déjà en cours d'exécution."
+        log_warn "$(t server_already_running)"
         exit 1
     fi
     
     if [[ ! -f "${SERVER_DIR}/${SERVER_JAR}" ]]; then
-        log_warn "Serveur non trouvé, téléchargement automatique..."
+        log_warn "$(t server_not_found)"
         echo ""
         echo "============================================"
-        echo "  TÉLÉCHARGEMENT DU SERVEUR"
+        echo "  $(t downloading_server)"
         echo "============================================"
         echo ""
-        echo "Si c'est la première fois, une authentification"
-        echo "OAuth2 sera requise (voir instructions ci-dessous)."
+        echo "$(t download_info)"
         echo ""
         echo "============================================"
         echo ""
         
         if [[ -x "${SCRIPT_DIR}/scripts/update.sh" ]]; then
             "${SCRIPT_DIR}/scripts/update.sh" download || {
-                log_error "Échec du téléchargement"
+                log_error "$(t download_failed)"
                 exit 1
             }
         else
-            log_error "Script de téléchargement introuvable: ${SCRIPT_DIR}/scripts/update.sh"
+            log_error "$(t script_not_found): ${SCRIPT_DIR}/scripts/update.sh"
             exit 1
         fi
     fi
     
     if [[ ! -f "${ASSETS_PATH}" ]]; then
-        log_error "Assets introuvables: ${ASSETS_PATH}"
+        log_error "$(t assets_not_found): ${ASSETS_PATH}"
         exit 1
     fi
     
     # Vérifier l'espace disque
     if ! check_disk_space; then
-        log_error "Démarrage annulé: espace disque insuffisant"
+        log_error "$(t starting_cancelled)"
         exit 1
     fi
     
-    log_info "Démarrage du serveur Hytale..."
+    log_info "$(t server_starting)"
     discord_start
     
     # Construction de la commande
