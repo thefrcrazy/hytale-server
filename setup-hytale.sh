@@ -686,20 +686,21 @@ step_10_configure() {
     if [ -f "${discord_file}" ] && [ -n "${CFG_WEBHOOK}" ]; then
         # Remplacer le bloc WEBHOOKS commenté par un bloc actif
         if [ "$(uname)" = "Darwin" ]; then
-            # Supprimer les anciennes lignes WEBHOOKS
-            sed -i '' '/^# WEBHOOKS=/d' "${discord_file}" 2>/dev/null || true
-            sed -i '' '/^WEBHOOKS=/d' "${discord_file}" 2>/dev/null || true
-            sed -i '' '/^#.*https:\/\/discord.com\/api\/webhooks/d' "${discord_file}" 2>/dev/null || true
-            sed -i '' '/^# )/d' "${discord_file}" 2>/dev/null || true
-            # Ajouter le nouveau WEBHOOKS après le header
+            # macOS: Supprimer les blocs WEBHOOKS (commentés ou non)
+            sed -i '' '/^[[:space:]]*# WEBHOOKS=(/,/)/d' "${discord_file}" 2>/dev/null || true
+            sed -i '' '/^[[:space:]]*WEBHOOKS=(/,/)/d' "${discord_file}" 2>/dev/null || true
+            sed -i '' '/^[[:space:]]*# .*api\/webhooks/d' "${discord_file}" 2>/dev/null || true
+            
+            # Réinsérer proprement
             sed -i '' "s|# Array de webhooks Discord.*|# Array de webhooks Discord\nWEBHOOKS=(\n    \"${CFG_WEBHOOK}\"\n)|" "${discord_file}" 2>/dev/null || true
             sed -i '' "s|^WEBHOOK_USERNAME=.*|WEBHOOK_USERNAME=\"${CFG_WEBHOOK_USERNAME}\"|" "${discord_file}" 2>/dev/null || true
         else
-            # Linux
-            sed -i '/^# WEBHOOKS=/d' "${discord_file}" 2>/dev/null || true
-            sed -i '/^WEBHOOKS=/d' "${discord_file}" 2>/dev/null || true
-            sed -i '/^#.*https:\/\/discord.com\/api\/webhooks/d' "${discord_file}" 2>/dev/null || true
-            sed -i '/^# )/d' "${discord_file}" 2>/dev/null || true
+            # Linux: Supprimer les blocs WEBHOOKS (commentés ou non)
+            sed -i '/^[[:space:]]*# WEBHOOKS=(/,/)/d' "${discord_file}" 2>/dev/null || true
+            sed -i '/^[[:space:]]*WEBHOOKS=(/,/)/d' "${discord_file}" 2>/dev/null || true
+            sed -i '/^[[:space:]]*# .*api\/webhooks/d' "${discord_file}" 2>/dev/null || true
+            
+            # Réinsérer proprement
             sed -i "s|# Array de webhooks Discord.*|# Array de webhooks Discord\nWEBHOOKS=(\n    \"${CFG_WEBHOOK}\"\n)|" "${discord_file}" 2>/dev/null || true
             sed -i "s|^WEBHOOK_USERNAME=.*|WEBHOOK_USERNAME=\"${CFG_WEBHOOK_USERNAME}\"|" "${discord_file}" 2>/dev/null || true
         fi
