@@ -9,8 +9,8 @@ set -eu
 # ============== CHARGEMENT BIBLIOTHÈQUE COMMUNE ==============
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ -f "${SCRIPT_DIR}/lib/utils.sh" ]]; then
-    source "${SCRIPT_DIR}/lib/utils.sh"
+if [[ -f "${SCRIPT_DIR}/../lib/utils.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/utils.sh"
 else
     echo "[ERROR] Bibliothèque lib/utils.sh introuvable. Exécutez ./setup-hytale.sh"
     exit 1

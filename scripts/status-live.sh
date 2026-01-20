@@ -10,7 +10,7 @@ set -eu
 
 # Charger la bibliothèque commune
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/lib/utils.sh"
+source "${SCRIPT_DIR}/../lib/utils.sh"
 
 # Fichier pour stocker l'ID du message
 MESSAGE_ID_FILE="${CONFIG_DIR}/.status_message_id"

@@ -10,7 +10,7 @@ set -eu
 
 # Charger la bibliothèque commune
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/lib/utils.sh"
+source "${SCRIPT_DIR}/../lib/utils.sh"
 
 # Fichier de lock pour éviter les exécutions multiples
 LOCK_FILE="${SCRIPT_DIR}/.watchdog.lock"
