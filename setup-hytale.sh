@@ -535,9 +535,12 @@ step_7_discord_config() {
     CFG_WEBHOOK=""
     if [ -f "${INSTALL_DIR}/config/discord.conf" ]; then
         . "${INSTALL_DIR}/config/discord.conf" 2>/dev/null || true
-        # Récupérer le premier webhook si défini
+        # Récupérer le webhook (nouveau format WEBHOOKS ou ancien WEBHOOK_URL)
         if [ -n "${WEBHOOKS:-}" ] && [ ${#WEBHOOKS[@]} -gt 0 ]; then
             CFG_WEBHOOK="${WEBHOOKS[0]}"
+        elif [ -n "${WEBHOOK_URL:-}" ] && [ "${WEBHOOK_URL}" != "https://discord.com/api/webhooks/VOTRE_WEBHOOK_ID/VOTRE_WEBHOOK_TOKEN" ]; then
+            # Migration depuis l'ancien format
+            CFG_WEBHOOK="${WEBHOOK_URL}"
         fi
         CFG_WEBHOOK_USERNAME="${WEBHOOK_USERNAME:-}"
     fi
