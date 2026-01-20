@@ -355,6 +355,9 @@ send_discord_embed() {
         return 0
     fi
     
+    # Déduplication des webhooks
+    local unique_webhooks=($(printf "%s\n" "${WEBHOOKS[@]}" | sort -u))
+    
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
@@ -375,7 +378,7 @@ send_discord_embed() {
     payload="${payload}}"
     
     # Envoyer à tous les webhooks
-    for webhook in "${WEBHOOKS[@]}"; do
+    for webhook in "${unique_webhooks[@]}"; do
         curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" &>/dev/null &
     done
 }
