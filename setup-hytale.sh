@@ -793,4 +793,47 @@ main() {
     step_complete
 }
 
-main "$@"
+cmd_update() {
+    echo "🔄 Mise à jour des scripts depuis GitHub..."
+    
+    GITHUB_REPO="thefrcrazy/hytale-server"
+    RELEASE_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+    
+    # Récupérer la version
+    release_info=$(curl -fsSL "${RELEASE_API}" 2>/dev/null)
+    version=$(echo "${release_info}" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+    
+    if [ -z "${version}" ]; then
+        echo "❌ Impossible de récupérer les informations de version"
+        exit 1
+    fi
+    
+    echo "📦 Version disponible: ${version}"
+    
+    # Télécharger le nouveau setup-hytale.sh
+    setup_url="https://raw.githubusercontent.com/${GITHUB_REPO}/${version}/setup-hytale.sh"
+    
+    if curl -fsSL "${setup_url}" -o "$0.new"; then
+        mv "$0.new" "$0"
+        chmod +x "$0"
+        echo "✅ setup-hytale.sh mis à jour vers ${version}"
+        echo ""
+        echo "Pour réinstaller les scripts (configs préservées):"
+        echo "  ./setup-hytale.sh"
+    else
+        echo "❌ Échec du téléchargement"
+        rm -f "$0.new"
+        exit 1
+    fi
+}
+
+# ============== MAIN ==============
+
+case "${1:-}" in
+    update)
+        cmd_update
+        ;;
+    *)
+        main "$@"
+        ;;
+esac
