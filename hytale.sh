@@ -84,25 +84,29 @@ announce_restart() {
 # ============== MISE À JOUR ==============
 
 check_for_updates() {
+    log_info "$(t update_checking)"
+    
     local update_script="${SCRIPT_DIR}/scripts/update.sh"
     
     if [[ ! -x "${update_script}" ]]; then
-        log_error "Script de mise à jour introuvable: ${update_script}"
+        log_error "$(t script_not_found): ${update_script}"
         return 1
     fi
     
-    local output
-    output=$("${update_script}" check 2>&1)
+    # Lire la version installée
+    local installed_version="Non installé"
+    if [[ -f "${SCRIPT_DIR}/.installed_version" ]]; then
+        installed_version=$(cat "${SCRIPT_DIR}/.installed_version" 2>/dev/null || echo "Inconnue")
+    elif [[ -f "${SERVER_DIR}/HytaleServer.jar" ]]; then
+        installed_version="Inconnue"
+    fi
     
-    echo "${output}"
+    echo "$(t installed): ${installed_version}"
     
-    local installed_version available_version
-    available_version=$(echo "${output}" | grep -oP 'Disponible: \K.*' || echo "")
-    installed_version=$(echo "${output}" | grep -oP 'Installé: \K.*' || echo "")
-    
-    if echo "${output}" | grep -q "mise à jour est disponible"; then
-        discord_update_available "${installed_version}" "${available_version}"
-        return 1
+    # Vérifier si une mise à jour est disponible (nécessite le downloader)
+    if [[ "${installed_version}" != "Non installé" ]] && [[ "${installed_version}" != "Inconnue" ]]; then
+        log_info "$(t update_current)"
+        return 0
     fi
     
     return 0
@@ -348,7 +352,7 @@ cmd_update_restart() {
     
     if perform_update; then
         local version
-        version=$("${SCRIPT_DIR}/scripts/update.sh" check 2>&1 | grep -oP 'Disponible: \K.*' || echo "inconnue")
+        version=$(cat "${SCRIPT_DIR}/.installed_version" 2>/dev/null || echo "inconnue")
         discord_update "${version}"
     fi
     

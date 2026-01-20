@@ -306,20 +306,20 @@ cmd_check_version() {
     fi
 }
 
-cmd_update_downloader() {
-    log "INFO" "Mise à jour de hytale-downloader..."
-    
-    if [ -x "${DOWNLOADER_BIN}" ]; then
-        ${DOWNLOADER_BIN} -check-update || true
-    fi
-    
-    rm -f "${DOWNLOADER_BIN}"
-    download_downloader
-}
 
-cmd_pre_release() {
-    PATCHLINE="pre-release"
-    cmd_download
+show_help() {
+    cat <<EOF
+Usage: $0 {download|auth-reset|help}
+
+Commandes:
+    download     Télécharger le serveur Hytale
+    auth-reset   Réinitialiser l'authentification OAuth2
+    help         Cette aide
+
+Authentification OAuth2:
+    Première utilisation: suivez les instructions affichées.
+    En cas d'erreur 401/403: $0 auth-reset
+EOF
 }
 
 cmd_auth_reset() {
@@ -341,54 +341,14 @@ cmd_auth_reset() {
     fi
 }
 
-cmd_downloader_version() {
-    ensure_downloader
-    ${DOWNLOADER_BIN} -version
-}
-
-
-show_help() {
-    cat <<EOF
-Usage: $0 {download|check|update-downloader|pre-release|auth-reset|help}
-
-Commandes:
-    download             Télécharger le serveur
-    check                Afficher les versions
-    update-downloader    Mettre à jour hytale-downloader
-    pre-release          Canal pre-release
-    auth-reset           Réinitialiser l'authentification
-    downloader-version   Version du downloader
-    help                 Cette aide
-
-Configuration (config/server.conf):
-    MIN_DISK_SPACE_GB=${MIN_DISK_SPACE_GB} (espace minimum requis)
-
-Authentification OAuth2:
-    Première utilisation: suivez les instructions affichées.
-    En cas d'erreur 401/403: $0 auth-reset
-EOF
-}
-
 # ============== MAIN ==============
 
 case "${1:-help}" in
     download)
         cmd_download
         ;;
-    check)
-        cmd_check_version
-        ;;
-    update-downloader)
-        cmd_update_downloader
-        ;;
-    pre-release)
-        cmd_pre_release
-        ;;
     auth-reset)
         cmd_auth_reset
-        ;;
-    downloader-version)
-        cmd_downloader_version
         ;;
     help|--help|-h)
         show_help
