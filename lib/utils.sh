@@ -361,29 +361,33 @@ send_discord_embed() {
         return 0
     fi
     
-    # Déduplication des webhooks
-    local unique_webhooks=($(printf "%s\n" "${WEBHOOKS[@]}" | sort -u))
-    
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
-    # Construire le payload JSON
+    # Si STATUS_MESSAGE_ID est défini, on édite ce message au lieu d'en créer un nouveau
+    if [[ -n "${STATUS_MESSAGE_ID:-}" ]]; then
+        local webhook_url="${WEBHOOKS[0]}"
+        local edit_url="${webhook_url}/messages/${STATUS_MESSAGE_ID}"
+        local payload='{"embeds":[{"title":"'"${title}"'","description":"'"${description}"'","color":'"${color}"',"timestamp":"'"${timestamp}"'","footer":{"text":"'"${footer}"'"}}]}'
+        curl -s -X PATCH -H "Content-Type: application/json" -d "${payload}" "${edit_url}" &>/dev/null &
+        return 0
+    fi
+    
+    # Mode création : construire le payload avec username/avatar
     local payload='{"embeds":[{"title":"'"${title}"'","description":"'"${description}"'","color":'"${color}"',"timestamp":"'"${timestamp}"'","footer":{"text":"'"${footer}"'"}}]'
     
-    # Ajouter username si défini
     if [[ -n "${WEBHOOK_USERNAME:-}" ]]; then
         payload="${payload}"',"username":"'"${WEBHOOK_USERNAME}"'"'
     fi
     
-    # Ajouter avatar si défini
     if [[ -n "${WEBHOOK_AVATAR_URL:-}" ]]; then
         payload="${payload}"',"avatar_url":"'"${WEBHOOK_AVATAR_URL}"'"'
     fi
     
-    # Fermer le JSON
     payload="${payload}}"
     
-    # Envoyer à tous les webhooks
+    # Déduplication et envoi
+    local unique_webhooks=($(printf "%s\n" "${WEBHOOKS[@]}" | sort -u))
     for webhook in "${unique_webhooks[@]}"; do
         curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" &>/dev/null &
     done
