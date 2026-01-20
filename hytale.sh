@@ -34,6 +34,18 @@ source "${CONFIG_DIR}/discord.conf" 2>/dev/null || true
 : "${ENABLE_BUILTIN_BACKUP:=true}"
 : "${BACKUP_FREQUENCY:=30}"
 
+# Restart automatique
+: "${ENABLE_AUTO_RESTART:=false}"
+: "${AUTO_RESTART_TIMES:=06:00}"
+: "${RESTART_WARNINGS:=300 60 30 10 5}"
+
+# Mise à jour automatique
+: "${AUTO_UPDATE_ON_RESTART:=false}"
+: "${MSG_RESTART_WARNING:=⚠️ ATTENTION: Le serveur redémarrera dans %s!}"
+: "${MSG_RESTART_NOW:=🔄 Le serveur redémarre maintenant... À tout de suite!}"
+: "${MSG_UPDATE_AVAILABLE:=📦 Une mise à jour a été détectée et sera installée.}"
+: "${MSG_NO_UPDATE:=✅ Serveur déjà à jour.}"
+
 # Déterminer l'exécutable Java
 if [[ -n "${JAVA_PATH}" ]] && [[ -x "${JAVA_PATH}" ]]; then
     JAVA_CMD="${JAVA_PATH}"
@@ -168,6 +180,116 @@ discord_restart() {
     send_discord_embed "🔄 Redémarrage" "Le serveur Hytale redémarre..." "${COLOR_RESTART:-15844367}"
 }
 
+discord_update() {
+    local version="$1"
+    send_discord_embed "📦 Mise à jour" "Le serveur a été mis à jour vers la version ${version}." "${COLOR_INFO:-3447003}"
+}
+
+# ============== MESSAGES SERVEUR IN-GAME ==============
+
+send_server_message() {
+    local message="$1"
+    if is_running; then
+        screen -S "${SCREEN_NAME}" -p 0 -X stuff "/say ${message}$(printf '\r')"
+        log "INFO" "Message envoyé au serveur: ${message}"
+    fi
+}
+
+format_time() {
+    local seconds=$1
+    if [[ $seconds -ge 60 ]]; then
+        local minutes=$((seconds / 60))
+        echo "${minutes} minute(s)"
+    else
+        echo "${seconds} seconde(s)"
+    fi
+}
+
+announce_restart() {
+    local warnings=(${RESTART_WARNINGS})
+    local sorted_warnings=($(echo "${warnings[@]}" | tr ' ' '\n' | sort -rn))
+    
+    log "INFO" "Début du compte à rebours de restart..."
+    
+    local previous_time=${sorted_warnings[0]}
+    sleep_time=0
+    
+    for warning in "${sorted_warnings[@]}"; do
+        # Calculer le temps d'attente depuis le dernier palier
+        if [[ $sleep_time -gt 0 ]]; then
+            sleep $sleep_time
+        fi
+        
+        # Envoyer l'annonce
+        local time_str
+        time_str=$(format_time $warning)
+        local message
+        message=$(printf "${MSG_RESTART_WARNING}" "${time_str}")
+        send_server_message "${message}"
+        
+        # Calculer l'attente pour le prochain palier
+        local next_idx=-1
+        for i in "${!sorted_warnings[@]}"; do
+            if [[ "${sorted_warnings[$i]}" == "$warning" ]]; then
+                next_idx=$((i + 1))
+                break
+            fi
+        done
+        
+        if [[ $next_idx -lt ${#sorted_warnings[@]} ]]; then
+            sleep_time=$((warning - sorted_warnings[next_idx]))
+        else
+            sleep_time=$warning
+        fi
+        
+        previous_time=$warning
+    done
+    
+    # Attendre le dernier délai puis annoncer le restart immédiat
+    sleep $sleep_time
+    send_server_message "${MSG_RESTART_NOW}"
+    sleep 2
+}
+
+# ============== MISE À JOUR ==============
+
+check_for_updates() {
+    local update_script="${SCRIPT_DIR}/update.sh"
+    
+    if [[ ! -x "${update_script}" ]]; then
+        log "ERROR" "Script de mise à jour introuvable: ${update_script}"
+        return 1
+    fi
+    
+    # Exécuter la vérification de version
+    local output
+    output=$("${update_script}" check 2>&1)
+    
+    echo "${output}"
+    
+    # Retourne 0 si une mise à jour est disponible (on ne peut pas vraiment le savoir sans comparer les versions)
+    return 0
+}
+
+perform_update() {
+    local update_script="${SCRIPT_DIR}/update.sh"
+    
+    if [[ ! -x "${update_script}" ]]; then
+        log "ERROR" "Script de mise à jour introuvable: ${update_script}"
+        return 1
+    fi
+    
+    log "INFO" "Téléchargement de la mise à jour..."
+    
+    if "${update_script}" download; then
+        log "INFO" "Mise à jour téléchargée avec succès."
+        return 0
+    else
+        log "ERROR" "Échec de la mise à jour."
+        return 1
+    fi
+}
+
 # ============== COMMANDES SERVEUR ==============
 
 cmd_start() {
@@ -287,6 +409,11 @@ cmd_status() {
             echo "CPU:         ${cpu}%"
             echo "RAM:         ${mem}%"
         fi
+        
+        # Afficher le nombre de joueurs
+        local players_info
+        players_info=$(get_players_count)
+        echo "Joueurs:     ${players_info}"
     else
         echo "État:        🔴 HORS LIGNE"
     fi
@@ -325,22 +452,157 @@ cmd_test_webhook() {
     log "INFO" "Messages envoyés aux webhooks configurés."
 }
 
+cmd_scheduled_restart() {
+    if ! is_running; then
+        log "WARN" "Le serveur n'est pas en cours d'exécution."
+        return 0
+    fi
+    
+    log "INFO" "Restart planifié avec annonces aux joueurs..."
+    discord_restart
+    
+    # Annonces in-game
+    announce_restart
+    
+    # Restart effectif
+    cmd_stop
+    sleep 5
+    cmd_start
+}
+
+cmd_check_update() {
+    log "INFO" "Vérification des mises à jour..."
+    check_for_updates
+}
+
+cmd_update_restart() {
+    log "INFO" "Mise à jour et redémarrage du serveur..."
+    
+    # Afficher les versions
+    check_for_updates
+    
+    # Envoyer un message aux joueurs si le serveur tourne
+    if is_running; then
+        send_server_message "${MSG_UPDATE_AVAILABLE}"
+        sleep 3
+        
+        # Annonces de restart
+        announce_restart
+        
+        # Arrêter le serveur
+        cmd_stop
+        sleep 5
+    fi
+    
+    # Effectuer la mise à jour
+    if perform_update; then
+        local version
+        version=$("${SCRIPT_DIR}/update.sh" check 2>&1 | grep -oP 'Disponible: \K.*' || echo "inconnue")
+        discord_update "${version}"
+    fi
+    
+    # Redémarrer le serveur
+    cmd_start
+}
+
+cmd_say() {
+    local message="$*"
+    if [[ -z "${message}" ]]; then
+        log "ERROR" "Usage: $0 say <message>"
+        exit 1
+    fi
+    send_server_message "${message}"
+}
+
+get_players_count() {
+    if ! is_running; then
+        echo "N/A (serveur hors ligne)"
+        return 1
+    fi
+    
+    # Créer un fichier temporaire pour capturer la sortie
+    local tmp_file
+    tmp_file=$(mktemp)
+    
+    # Envoyer la commande /who et capturer les logs
+    local log_file="${LOGS_DIR}/server.log"
+    local line_before
+    line_before=$(wc -l < "${log_file}" 2>/dev/null || echo "0")
+    
+    screen -S "${SCREEN_NAME}" -p 0 -X stuff "/who$(printf '\r')"
+    sleep 1
+    
+    # Lire les nouvelles lignes du log
+    local output
+    output=$(tail -n +$((line_before + 1)) "${log_file}" 2>/dev/null | grep -E 'default \([0-9]+\):' | tail -n1)
+    
+    if [[ -n "${output}" ]]; then
+        # Extraire le nombre de joueurs: "default (1): : TheFRcRaZy"
+        local count
+        count=$(echo "${output}" | grep -oP '\(\K[0-9]+' || echo "0")
+        
+        # Extraire les noms des joueurs
+        local names
+        names=$(echo "${output}" | sed 's/.*): //' | tr -d ':')
+        
+        if [[ "${count}" -eq 0 ]]; then
+            echo "0 joueur(s)"
+        elif [[ "${count}" -eq 1 ]]; then
+            echo "1 joueur: ${names}"
+        else
+            echo "${count} joueurs: ${names}"
+        fi
+    else
+        echo "? (impossible de récupérer)"
+    fi
+    
+    rm -f "${tmp_file}"
+}
+
+cmd_players() {
+    if ! is_running; then
+        log "ERROR" "Le serveur n'est pas en cours d'exécution."
+        exit 1
+    fi
+    
+    echo "============================================"
+    echo "   JOUEURS CONNECTÉS"
+    echo "============================================"
+    
+    local players_info
+    players_info=$(get_players_count)
+    echo "${players_info}"
+    
+    echo "============================================"
+}
+
 cmd_help() {
     cat <<EOF
 Usage: $0 {start|stop|restart|status|console|auth|test-webhook|help}
 
-Commandes:
-    start        Démarrer le serveur
-    stop         Arrêter le serveur proprement
-    restart      Redémarrer le serveur
-    status       Afficher l'état du serveur
-    console      Accéder à la console du serveur
-    auth         Lancer l'authentification Hytale OAuth2
-    test-webhook Tester les webhooks Discord
-    help         Afficher cette aide
+Commandes de base:
+    start              Démarrer le serveur
+    stop               Arrêter le serveur proprement
+    restart            Redémarrer le serveur (immédiat)
+    status             Afficher l'état du serveur
+    players            Afficher les joueurs connectés
+    console            Accéder à la console du serveur
+    auth               Lancer l'authentification Hytale OAuth2
+
+Restart planifié:
+    scheduled-restart  Redémarrer avec annonces aux joueurs (5min, 1min, 30s...)
+    
+Mise à jour:
+    check-update       Vérifier si une mise à jour est disponible
+    update             Mettre à jour et redémarrer avec annonces
+
+Utilitaires:
+    say <message>      Envoyer un message aux joueurs via /say
+    test-webhook       Tester les webhooks Discord
+    help               Afficher cette aide
 
 Configuration:
-    ${CONFIG_DIR}/server.conf  - Configuration principale
+    ${CONFIG_DIR}/server.conf  - Configuration principale (restart auto, update auto)
     ${CONFIG_DIR}/discord.conf - Webhooks Discord
     
 Port UDP 5520 requis (protocole QUIC).
@@ -369,6 +631,22 @@ case "${1:-help}" in
         ;;
     auth)
         cmd_auth
+        ;;
+    players)
+        cmd_players
+        ;;
+    scheduled-restart)
+        cmd_scheduled_restart
+        ;;
+    check-update)
+        cmd_check_update
+        ;;
+    update)
+        cmd_update_restart
+        ;;
+    say)
+        shift
+        cmd_say "$@"
         ;;
     test-webhook)
         cmd_test_webhook

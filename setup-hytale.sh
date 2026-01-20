@@ -98,6 +98,33 @@ HYTALE_GROUP="hytale"
 #===============================================================================
 
 DOWNLOADER_URL="https://downloader.hytale.com/hytale-downloader.zip"
+
+#===============================================================================
+#  RESTART AUTOMATIQUE
+#===============================================================================
+
+# Activer le restart automatique planifié
+ENABLE_AUTO_RESTART="true"
+
+# Heures de restart (format 24h, séparées par espaces)
+# Exemples: "06:00" ou "06:00 18:00" ou "00:00 06:00 12:00 18:00"
+AUTO_RESTART_TIMES="06:00 18:00"
+
+# Délais d'annonce avant restart (secondes)
+RESTART_WARNINGS="300 60 30 10 5"
+
+#===============================================================================
+#  MISE À JOUR AUTOMATIQUE
+#===============================================================================
+
+# Vérifier et installer les mises à jour avant chaque restart automatique
+AUTO_UPDATE_ON_RESTART="true"
+
+# Messages d'annonce (le %s sera remplacé par le temps restant)
+MSG_RESTART_WARNING="⚠️ ATTENTION: Le serveur redémarrera dans %s!"
+MSG_RESTART_NOW="🔄 Le serveur redémarre maintenant... À tout de suite!"
+MSG_UPDATE_AVAILABLE="📦 Une mise à jour a été détectée et sera installée."
+MSG_NO_UPDATE="✅ Serveur déjà à jour."
 SERVERCONF
 
     # Remplacer le placeholder par le vrai chemin
@@ -138,6 +165,11 @@ create_hytale_sh() {
     
     cat > "${INSTALL_DIR}/hytale.sh" << 'HYTALESH'
 #!/bin/bash
+#===============================================================================
+#  HYTALE DEDICATED SERVER - SCRIPT PRINCIPAL
+#  Requis: Java 25 LTS, screen
+#===============================================================================
+
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -156,11 +188,20 @@ source "${CONFIG_DIR}/discord.conf" 2>/dev/null || true
 : "${BIND_ADDRESS:=0.0.0.0:5520}"
 : "${AUTH_MODE:=authenticated}"
 : "${JAVA_MIN_VERSION:=25}"
-: "${JAVA_OPTS:=-Xms4G -Xmx8G -XX:+UseG1GC}"
+: "${JAVA_OPTS:=-Xms4G -Xmx8G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200}"
 : "${JAVA_PATH:=}"
 : "${USE_AOT_CACHE:=true}"
 : "${ENABLE_BUILTIN_BACKUP:=true}"
 : "${BACKUP_FREQUENCY:=30}"
+
+: "${ENABLE_AUTO_RESTART:=false}"
+: "${AUTO_RESTART_TIMES:=06:00}"
+: "${RESTART_WARNINGS:=300 60 30 10 5}"
+: "${AUTO_UPDATE_ON_RESTART:=false}"
+: "${MSG_RESTART_WARNING:=⚠️ ATTENTION: Le serveur redémarrera dans %s!}"
+: "${MSG_RESTART_NOW:=🔄 Le serveur redémarre maintenant... À tout de suite!}"
+: "${MSG_UPDATE_AVAILABLE:=📦 Une mise à jour a été détectée et sera installée.}"
+: "${MSG_NO_UPDATE:=✅ Serveur déjà à jour.}"
 
 if [[ -n "${JAVA_PATH}" ]] && [[ -x "${JAVA_PATH}" ]]; then
     JAVA_CMD="${JAVA_PATH}"
@@ -190,13 +231,85 @@ send_discord() {
     curl -s -H "Content-Type: application/json" -d "${payload}" "${WEBHOOK_URL}" &>/dev/null &
 }
 
+send_server_message() {
+    local message="$1"
+    if is_running; then
+        screen -S "${SCREEN_NAME}" -p 0 -X stuff "/say ${message}$(printf '\r')"
+        log "INFO" "Message envoyé: ${message}"
+    fi
+}
+
+format_time() {
+    local seconds=$1
+    if [[ $seconds -ge 60 ]]; then
+        echo "$((seconds / 60)) minute(s)"
+    else
+        echo "${seconds} seconde(s)"
+    fi
+}
+
+announce_restart() {
+    local warnings=(${RESTART_WARNINGS})
+    local sorted_warnings=($(echo "${warnings[@]}" | tr ' ' '\n' | sort -rn))
+    log "INFO" "Compte à rebours de restart..."
+    
+    local sleep_time=0
+    for warning in "${sorted_warnings[@]}"; do
+        [[ $sleep_time -gt 0 ]] && sleep $sleep_time
+        local msg=$(printf "${MSG_RESTART_WARNING}" "$(format_time $warning)")
+        send_server_message "${msg}"
+        
+        local next_idx=-1
+        for i in "${!sorted_warnings[@]}"; do
+            [[ "${sorted_warnings[$i]}" == "$warning" ]] && { next_idx=$((i + 1)); break; }
+        done
+        
+        if [[ $next_idx -lt ${#sorted_warnings[@]} ]]; then
+            sleep_time=$((warning - sorted_warnings[next_idx]))
+        else
+            sleep_time=$warning
+        fi
+    done
+    
+    sleep $sleep_time
+    send_server_message "${MSG_RESTART_NOW}"
+    sleep 2
+}
+
+check_for_updates() {
+    local update_script="${SCRIPT_DIR}/update.sh"
+    [[ ! -x "${update_script}" ]] && { log "ERROR" "Script update.sh introuvable"; return 1; }
+    "${update_script}" check 2>&1
+}
+
+perform_update() {
+    local update_script="${SCRIPT_DIR}/update.sh"
+    [[ ! -x "${update_script}" ]] && { log "ERROR" "Script update.sh introuvable"; return 1; }
+    log "INFO" "Téléchargement mise à jour..."
+    "${update_script}" download
+}
+
+get_players_count() {
+    if ! is_running; then echo "N/A"; return 1; fi
+    local log_file="${LOGS_DIR}/server.log"
+    local line_before=$(wc -l < "${log_file}" 2>/dev/null || echo "0")
+    screen -S "${SCREEN_NAME}" -p 0 -X stuff "/who$(printf '\r')"
+    sleep 1
+    local output=$(tail -n +$((line_before + 1)) "${log_file}" 2>/dev/null | grep -E 'default \([0-9]+\):' | tail -n1)
+    if [[ -n "${output}" ]]; then
+        local count=$(echo "${output}" | grep -oP '\(\K[0-9]+' || echo "0")
+        local names=$(echo "${output}" | sed 's/.*): //' | tr -d ':')
+        [[ "${count}" -eq 0 ]] && echo "0 joueur(s)" || echo "${count} joueur(s): ${names}"
+    else
+        echo "?"
+    fi
+}
+
 cmd_start() {
     if [[ -n "${JAVA_PATH}" ]] && [[ ! -x "${JAVA_PATH}" ]]; then
         log "ERROR" "Java introuvable: ${JAVA_PATH}"; exit 1
     fi
-    if ! command -v ${JAVA_CMD} &>/dev/null; then
-        log "ERROR" "Java non installé"; exit 1
-    fi
+    command -v ${JAVA_CMD} &>/dev/null || { log "ERROR" "Java non installé"; exit 1; }
     
     local ver=$(${JAVA_CMD} --version 2>&1 | head -n1 | grep -oP '\d+' | head -n1)
     [[ "${ver}" -lt "${JAVA_MIN_VERSION}" ]] && { log "ERROR" "Java ${JAVA_MIN_VERSION}+ requis"; exit 1; }
@@ -238,12 +351,17 @@ cmd_stop() {
 cmd_restart() { log "INFO" "Redémarrage..."; cmd_stop; sleep 5; cmd_start; }
 
 cmd_status() {
-    echo "=== HYTALE STATUS ==="
+    echo "=== HYTALE SERVER STATUS ==="
     if is_running; then
-        echo "État: 🟢 EN LIGNE"
-        echo "Screen: ${SCREEN_NAME}"
+        local pid=$(get_pid)
+        echo "État:    🟢 EN LIGNE"
+        echo "PID:     ${pid:-N/A}"
+        echo "Screen:  ${SCREEN_NAME}"
+        [[ -n "${pid}" ]] && echo "CPU:     $(ps -p "${pid}" -o %cpu= 2>/dev/null | tr -d ' ' || echo 'N/A')%"
+        [[ -n "${pid}" ]] && echo "RAM:     $(ps -p "${pid}" -o %mem= 2>/dev/null | tr -d ' ' || echo 'N/A')%"
+        echo "Joueurs: $(get_players_count)"
     else
-        echo "État: 🔴 HORS LIGNE"
+        echo "État:    🔴 HORS LIGNE"
     fi
     echo "Adresse: ${BIND_ADDRESS}"
 }
@@ -254,13 +372,80 @@ cmd_console() {
     screen -r "${SCREEN_NAME}"
 }
 
+cmd_players() {
+    is_running || { log "ERROR" "Serveur non actif"; exit 1; }
+    echo "=== JOUEURS CONNECTÉS ==="
+    echo "$(get_players_count)"
+}
+
+cmd_scheduled_restart() {
+    is_running || { log "WARN" "Serveur non actif"; return 0; }
+    log "INFO" "Restart planifié avec annonces..."
+    send_discord "🔄 Redémarrage" "Restart planifié en cours..." "${COLOR_RESTART:-15844367}"
+    announce_restart
+    cmd_stop; sleep 5; cmd_start
+}
+
+cmd_check_update() { log "INFO" "Vérification MAJ..."; check_for_updates; }
+
+cmd_update_restart() {
+    log "INFO" "Mise à jour et redémarrage..."
+    check_for_updates
+    if is_running; then
+        send_server_message "${MSG_UPDATE_AVAILABLE}"
+        sleep 3
+        announce_restart
+        cmd_stop; sleep 5
+    fi
+    perform_update && send_discord "📦 Mise à jour" "Serveur mis à jour" "${COLOR_INFO:-3447003}"
+    cmd_start
+}
+
+cmd_say() {
+    [[ -z "$*" ]] && { log "ERROR" "Usage: $0 say <message>"; exit 1; }
+    send_server_message "$*"
+}
+
+cmd_help() {
+    cat <<EOF
+Usage: $0 {start|stop|restart|status|players|console|scheduled-restart|update|check-update|say|help}
+
+Commandes de base:
+    start              Démarrer le serveur
+    stop               Arrêter le serveur
+    restart            Redémarrer (immédiat)
+    status             État du serveur
+    players            Joueurs connectés
+    console            Console (Ctrl+A,D pour quitter)
+
+Restart planifié:
+    scheduled-restart  Restart avec annonces aux joueurs
+
+Mise à jour:
+    check-update       Vérifier les mises à jour
+    update             Mettre à jour et redémarrer
+
+Utilitaires:
+    say <message>      Envoyer un message aux joueurs
+    help               Cette aide
+EOF
+}
+
+mkdir -p "${LOGS_DIR}"
+
 case "${1:-help}" in
     start) cmd_start ;;
     stop) cmd_stop ;;
     restart) cmd_restart ;;
     status) cmd_status ;;
+    players) cmd_players ;;
     console) cmd_console ;;
-    *) echo "Usage: $0 {start|stop|restart|status|console}" ;;
+    scheduled-restart) cmd_scheduled_restart ;;
+    check-update) cmd_check_update ;;
+    update) cmd_update_restart ;;
+    say) shift; cmd_say "$@" ;;
+    help|--help|-h) cmd_help ;;
+    *) log "ERROR" "Commande inconnue: $1"; cmd_help; exit 1 ;;
 esac
 HYTALESH
     chmod +x "${INSTALL_DIR}/hytale.sh"
@@ -440,32 +625,36 @@ create_readme() {
     cat > "${INSTALL_DIR}/README.md" << 'README'
 # 🎮 Serveur Hytale
 
-## Commandes
-
+## Commandes de base
 | Commande | Description |
 |----------|-------------|
-| `./update.sh download` | Télécharger le serveur |
 | `./hytale.sh start` | Démarrer |
 | `./hytale.sh stop` | Arrêter |
+| `./hytale.sh status` | Statut (CPU, RAM, joueurs) |
+| `./hytale.sh players` | Joueurs connectés |
 | `./hytale.sh console` | Console |
-| `./backup.sh create` | Backup |
+
+## Restart et mise à jour
+| Commande | Description |
+|----------|-------------|
+| `./hytale.sh scheduled-restart` | Restart avec annonces |
+| `./hytale.sh update` | Mise à jour + restart |
+| `./hytale.sh check-update` | Vérifier MAJ |
+| `./update.sh download` | Télécharger |
+
+## Utilitaires
+| Commande | Description |
+|----------|-------------|
+| `./hytale.sh say "Message"` | Message in-game |
+| `./backup.sh create` | Backup manuel |
 
 ## Configuration
-
 - `config/server.conf` - Configuration principale
 - `config/discord.conf` - Webhooks Discord
 
 ## Prérequis
-
 - Java 25+ (Temurin recommandé)
 - Port UDP 5520
-
-## Authentification
-
-1. `./hytale.sh start`
-2. `./hytale.sh console`
-3. `/auth login device`
-4. https://accounts.hytale.com/device
 README
 }
 

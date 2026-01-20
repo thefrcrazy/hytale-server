@@ -15,7 +15,7 @@
 
 ```bash
 # Importer la clé GPG Adoptium
-wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | \
+sudo wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | \
     gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null
 
 # Ajouter le dépôt
@@ -44,9 +44,8 @@ cd /home/hytale/myserver
 # ...
 
 # Lancer l'installation
-chmod +x setup-hytale.sh
-./setup-hytale.sh           # Sans systemd
-sudo ./setup-hytale.sh      # Avec systemd
+sudo chmod +x setup-hytale.sh
+sudo ./setup-hytale.sh
 ```
 
 Le script `setup-hytale.sh` crée automatiquement :
@@ -60,10 +59,10 @@ Le script `setup-hytale.sh` crée automatiquement :
 
 ```bash
 # Configuration principale
-nano config/server.conf
+sudo nano config/server.conf
 
 # Webhooks Discord (optionnel)
-nano config/discord.conf
+sudo nano config/discord.conf
 ```
 
 **Variables importantes** (`server.conf`) :
@@ -71,6 +70,11 @@ nano config/discord.conf
 JAVA_PATH="/usr/lib/jvm/temurin-25-jdk-amd64/bin/java"  # Java personnalisé
 JAVA_OPTS="-Xms4G -Xmx8G"                               # Mémoire
 BIND_ADDRESS="0.0.0.0:5520"                             # Port
+
+# Restart automatique
+AUTO_RESTART_TIMES="06:00 18:00"                        # Heures de restart
+RESTART_WARNINGS="300 60 30 10 5"                       # Délais d'annonce (secondes)
+AUTO_UPDATE_ON_RESTART="true"                          # MAJ auto avant restart
 ```
 
 ---
@@ -78,7 +82,7 @@ BIND_ADDRESS="0.0.0.0:5520"                             # Port
 ## 4️⃣ Télécharger le Serveur
 
 ```bash
-./update.sh download
+sudo ./update.sh download
 ```
 
 **Première utilisation** : authentification OAuth2 requise
@@ -93,16 +97,16 @@ BIND_ADDRESS="0.0.0.0:5520"                             # Port
 
 ```bash
 # Démarrer
-./hytale.sh start
+sudo ./hytale.sh start
 
 # Statut
-./hytale.sh status
+sudo ./hytale.sh status
 
-# Console (Ctrl+A,D pour quitter)
-./hytale.sh console
+# Console (screen -r, Ctrl+A,D pour quitter)
+sudo ./hytale.sh console
 
 # Arrêter
-./hytale.sh stop
+sudo ./hytale.sh stop
 ```
 
 **Avec systemd** :
@@ -128,14 +132,30 @@ sudo firewall-cmd --permanent --add-port=5520/udp && sudo firewall-cmd --reload
 
 ## 📚 Commandes
 
+### Commandes de base
 | Commande | Description |
 |----------|-------------|
-| `./update.sh download` | Télécharger le serveur |
-| `./hytale.sh start` | Démarrer |
-| `./hytale.sh stop` | Arrêter |
-| `./hytale.sh console` | Console |
-| `./backup.sh create` | Backup manuel |
-| `./hytale-auth.sh trigger` | Auth OAuth2 |
+| `sudo ./hytale.sh start` | Démarrer le serveur |
+| `sudo ./hytale.sh stop` | Arrêter le serveur |
+| `sudo ./hytale.sh restart` | Redémarrer (immédiat) |
+| `sudo ./hytale.sh status` | Statut (CPU, RAM, joueurs) |
+| `sudo ./hytale.sh players` | Afficher les joueurs connectés |
+| `sudo ./hytale.sh console` | Console (`Ctrl+A,D` pour quitter) |
+
+### Restart planifié et mise à jour
+| Commande | Description |
+|----------|-------------|
+| `sudo ./hytale.sh scheduled-restart` | Restart avec annonces (5min, 1min, 30s...) |
+| `sudo ./hytale.sh check-update` | Vérifier les mises à jour |
+| `sudo ./hytale.sh update` | Mettre à jour + restart avec annonces |
+| `sudo ./update.sh download` | Télécharger le serveur |
+
+### Utilitaires
+| Commande | Description |
+|----------|-------------|
+| `sudo ./hytale.sh say "Message"` | Envoyer un message in-game |
+| `sudo ./backup.sh create` | Backup manuel |
+| `sudo ./hytale-auth.sh trigger` | Auth OAuth2 |
 
 ---
 
