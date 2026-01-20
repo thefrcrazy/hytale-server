@@ -397,9 +397,12 @@ edit_discord_message() {
     local color="$4"
     local footer="${5:-${SERVER_NAME}}"
     
-    if [[ -z "${WEBHOOK_URL:-}" ]] || [[ -z "${message_id}" ]]; then
+    if [[ -z "${WEBHOOKS:-}" ]] || [[ ${#WEBHOOKS[@]} -eq 0 ]] || [[ -z "${message_id}" ]]; then
         return 1
     fi
+    
+    # Utiliser le premier webhook
+    local webhook_url="${WEBHOOKS[0]}"
     
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -407,7 +410,7 @@ edit_discord_message() {
     local payload='{"embeds":[{"title":"'"${title}"'","description":"'"${description}"'","color":'"${color}"',"timestamp":"'"${timestamp}"'","footer":{"text":"'"${footer}"'"}}]}'
     
     # L'URL pour éditer un message webhook
-    local edit_url="${WEBHOOK_URL}/messages/${message_id}"
+    local edit_url="${webhook_url}/messages/${message_id}"
     
     curl -s -X PATCH -H "Content-Type: application/json" -d "${payload}" "${edit_url}" &>/dev/null
 }
@@ -418,9 +421,12 @@ create_discord_message() {
     local description="$2"
     local color="$3"
     
-    if [[ -z "${WEBHOOK_URL:-}" ]]; then
+    if [[ -z "${WEBHOOKS:-}" ]] || [[ ${#WEBHOOKS[@]} -eq 0 ]]; then
         return 1
     fi
+    
+    # Utiliser le premier webhook
+    local webhook_url="${WEBHOOKS[0]}"
     
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -433,7 +439,7 @@ create_discord_message() {
     fi
     
     local response
-    response=$(curl -s -H "Content-Type: application/json" -d "${payload}" "${WEBHOOK_URL}?wait=true")
+    response=$(curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook_url}?wait=true")
     
     # Extraire l'ID du message
     echo "${response}" | grep -oP '"id":\s*"\K[0-9]+' | head -1
