@@ -81,8 +81,8 @@ cmd_update() {
         return 1
     fi
     
-    if [[ -z "${WEBHOOK_URL:-}" ]]; then
-        log_error "WEBHOOK_URL non configuré dans config/discord.conf"
+    if [[ -z "${WEBHOOKS:-}" ]] || [[ ${#WEBHOOKS[@]} -eq 0 ]]; then
+        log_error "WEBHOOKS non configuré dans config/discord.conf"
         return 1
     fi
     
@@ -106,8 +106,8 @@ cmd_update() {
 }
 
 cmd_init() {
-    if [[ -z "${WEBHOOK_URL:-}" ]]; then
-        log_error "WEBHOOK_URL non configuré dans config/discord.conf"
+    if [[ -z "${WEBHOOKS:-}" ]] || [[ ${#WEBHOOKS[@]} -eq 0 ]]; then
+        log_error "WEBHOOKS non configuré dans config/discord.conf"
         return 1
     fi
     
@@ -163,7 +163,7 @@ cmd_status() {
         echo "Message ID:    ⚠️  Non configuré"
     fi
     
-    if [[ -n "${WEBHOOK_URL:-}" ]]; then
+    if [[ -n "${WEBHOOKS:-}" ]] && [[ ${#WEBHOOKS[@]} -gt 0 ]]; then
         echo "Webhook:       ✅ Configuré"
     else
         echo "Webhook:       ❌ Non configuré"
@@ -183,7 +183,7 @@ Commandes:
     help        Afficher cette aide
 
 Configuration (config/discord.conf):
-    WEBHOOK_URL         - URL du webhook Discord (requis)
+    WEBHOOKS            - Array de webhooks Discord (requis)
     STATUS_MESSAGE_ID   - ID du message à éditer (optionnel, créé par init)
     WEBHOOK_USERNAME    - Nom personnalisé du bot
     WEBHOOK_AVATAR_URL  - Avatar personnalisé

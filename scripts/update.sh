@@ -95,7 +95,8 @@ send_discord_update() {
     description="$2"
     color="$3"
     
-    if [ -z "${WEBHOOK_URL:-}" ]; then
+    # Vérifier si des webhooks sont configurés
+    if [ -z "${WEBHOOKS:-}" ]; then
         return 0
     fi
     
@@ -115,7 +116,10 @@ send_discord_update() {
     
     payload="${payload}}"
     
-    curl -s -H "Content-Type: application/json" -d "${payload}" "${WEBHOOK_URL}" >/dev/null 2>&1 &
+    # Envoyer à tous les webhooks
+    for webhook in "${WEBHOOKS[@]}"; do
+        curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" >/dev/null 2>&1 &
+    done
 }
 
 check_dependencies() {

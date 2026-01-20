@@ -25,7 +25,8 @@ send_discord_auth() {
     local description="$2"
     local color="$3"
     
-    [[ -z "${WEBHOOK_URL:-}" ]] && return 0
+    # Vérifier si des webhooks sont configurés
+    [[ -z "${WEBHOOKS:-}" ]] || [[ ${#WEBHOOKS[@]} -eq 0 ]] && return 0
     
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -43,7 +44,10 @@ send_discord_auth() {
     
     payload="${payload}}"
     
-    curl -s -H "Content-Type: application/json" -d "${payload}" "${WEBHOOK_URL}" &>/dev/null &
+    # Envoyer à tous les webhooks
+    for webhook in "${WEBHOOKS[@]}"; do
+        curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" &>/dev/null &
+    done
 }
 
 check_auth_status() {
