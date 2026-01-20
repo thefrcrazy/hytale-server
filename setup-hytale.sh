@@ -411,7 +411,9 @@ step_6_download() {
     download_file "LICENSE" "LICENSE"
     
     STEP_SUMMARY_6="${downloaded} fichiers"
-    [ ${failed} -gt 0 ] && STEP_SUMMARY_6="${STEP_SUMMARY_6} (${failed} échecs)"
+    if [ ${failed} -gt 0 ]; then
+        STEP_SUMMARY_6="${STEP_SUMMARY_6} (${failed} échecs)"
+    fi
 }
 
 step_7_configure() {
