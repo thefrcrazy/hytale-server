@@ -534,15 +534,23 @@ step_7_discord_config() {
     # Charger config existante si disponible
     CFG_WEBHOOK=""
     if [ -f "${INSTALL_DIR}/config/discord.conf" ]; then
-        . "${INSTALL_DIR}/config/discord.conf" 2>/dev/null || true
-        # Récupérer le webhook (nouveau format WEBHOOKS ou ancien WEBHOOK_URL)
-        if [ -n "${WEBHOOKS:-}" ] && [ ${#WEBHOOKS[@]} -gt 0 ]; then
-            CFG_WEBHOOK="${WEBHOOKS[0]}"
-        elif [ -n "${WEBHOOK_URL:-}" ] && [ "${WEBHOOK_URL}" != "https://discord.com/api/webhooks/VOTRE_WEBHOOK_ID/VOTRE_WEBHOOK_TOKEN" ]; then
-            # Migration depuis l'ancien format
-            CFG_WEBHOOK="${WEBHOOK_URL}"
+        # Charger dans un sous-shell pour éviter de crasher le script principal en cas d'erreur de syntaxe
+        if (source "${INSTALL_DIR}/config/discord.conf") >/dev/null 2>&1; then
+            . "${INSTALL_DIR}/config/discord.conf" 2>/dev/null || true
+            
+            # Récupérer le webhook (nouveau format WEBHOOKS ou ancien WEBHOOK_URL)
+            if [ -n "${WEBHOOKS:-}" ] && [ ${#WEBHOOKS[@]} -gt 0 ]; then
+                CFG_WEBHOOK="${WEBHOOKS[0]}"
+            elif [ -n "${WEBHOOK_URL:-}" ] && [ "${WEBHOOK_URL}" != "https://discord.com/api/webhooks/VOTRE_WEBHOOK_ID/VOTRE_WEBHOOK_TOKEN" ]; then
+                # Migration depuis l'ancien format
+                CFG_WEBHOOK="${WEBHOOK_URL}"
+            fi
+            CFG_WEBHOOK_USERNAME="${WEBHOOK_USERNAME:-}"
+        else
+            echo ""
+            echo "⚠️  Erreur de syntaxe détectée dans ${INSTALL_DIR}/config/discord.conf"
+            echo "   (Probablement des virgules dans WEBHOOKS=(...)). Config ignorée."
         fi
-        CFG_WEBHOOK_USERNAME="${WEBHOOK_USERNAME:-}"
     fi
     
     echo "$(t webhook_url) ($(t skip_empty))"
@@ -847,14 +855,12 @@ cmd_update() {
     GITHUB_REPO="thefrcrazy/hytale-server"
     RELEASE_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
     
-    # Récupérer la version avec timeout
-    echo "   Connexion à GitHub..."
-    release_info=$(curl -fsSL --max-time 30 "${RELEASE_API}" 2>/dev/null)
+    # Récupérer la version
+    release_info=$(curl -fsSL "${RELEASE_API}" 2>/dev/null)
     version=$(echo "${release_info}" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
     
     if [ -z "${version}" ]; then
         echo "❌ Impossible de récupérer les informations de version"
-        echo "   Vérifiez votre connexion internet."
         exit 1
     fi
     
@@ -862,9 +868,8 @@ cmd_update() {
     
     # Télécharger le nouveau setup-hytale.sh
     setup_url="https://raw.githubusercontent.com/${GITHUB_REPO}/${version}/setup-hytale.sh"
-    echo "   Téléchargement..."
     
-    if curl -fsSL --max-time 60 "${setup_url}" -o "$0.new"; then
+    if curl -fsSL "${setup_url}" -o "$0.new"; then
         mv "$0.new" "$0"
         chmod +x "$0"
         echo "✅ setup-hytale.sh mis à jour vers ${version}"

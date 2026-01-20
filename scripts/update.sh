@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #===============================================================================
 #  HYTALE SERVER - DOWNLOAD & UPDATE SCRIPT
 #  Téléchargement et mise à jour via hytale-downloader
