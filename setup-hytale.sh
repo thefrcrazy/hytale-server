@@ -218,11 +218,11 @@ prompt() {
     example="$3"
     
     if [ -n "${default}" ]; then
-        printf ">> %s [%s]: " "${msg}" "${default}"
+        printf ">> %s [%s]: " "${msg}" "${default}" >&2
     elif [ -n "${example}" ]; then
-        printf ">> %s ($(t example): %s): " "${msg}" "${example}"
+        printf ">> %s ($(t example): %s): " "${msg}" "${example}" >&2
     else
-        printf ">> %s: " "${msg}"
+        printf ">> %s: " "${msg}" >&2
     fi
     read -r response
     [ -z "${response}" ] && response="${default}"

@@ -5,8 +5,8 @@
 #  Compatible: sh, bash, dash
 #===============================================================================
 
-# Déterminer le répertoire du script
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Déterminer le répertoire racine (ce script est dans /scripts/)
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG_DIR="${SCRIPT_DIR}/config"
 
 # Charger la configuration principale
@@ -19,7 +19,7 @@ if [ -f "${CONFIG_DIR}/discord.conf" ]; then
     . "${CONFIG_DIR}/discord.conf"
 fi
 
-# Valeurs par défaut
+# Valeurs par défaut (utiliser les chemins de la config ou le répertoire racine)
 SERVER_DIR="${SERVER_DIR:-${SCRIPT_DIR}/server}"
 ASSETS_DIR="${ASSETS_DIR:-${SCRIPT_DIR}/assets}"
 LOGS_DIR="${LOGS_DIR:-${SCRIPT_DIR}/logs}"
@@ -27,7 +27,7 @@ PATCHLINE="${PATCHLINE:-release}"
 DOWNLOADER_URL="${DOWNLOADER_URL:-https://downloader.hytale.com/hytale-downloader.zip}"
 MIN_DISK_SPACE_GB="${MIN_DISK_SPACE_GB:-5}"
 
-TEMP_DIR="${SCRIPT_DIR}/.tmp"
+TEMP_DIR="${SCRIPT_DIR}/scripts/.tmp"
 CREDENTIALS_FILE="${SCRIPT_DIR}/.hytale-downloader-credentials.json"
 
 # Détecter la plateforme
@@ -50,7 +50,7 @@ detect_platform() {
 }
 
 PLATFORM=$(detect_platform)
-DOWNLOADER_BIN="${SCRIPT_DIR}/hytale-downloader-${PLATFORM}"
+DOWNLOADER_BIN="${SCRIPT_DIR}/scripts/hytale-downloader-${PLATFORM}"
 
 # Windows: ajouter .exe
 case "${PLATFORM}" in
