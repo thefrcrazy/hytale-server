@@ -123,7 +123,10 @@ send_discord_embed() {
     local color="$3"
     local footer="${4:-${SERVER_NAME:-Hytale Server}}"
     
-    [[ -z "${WEBHOOKS:-}" ]] && return 0
+    # Support WEBHOOK_URL (single) ou WEBHOOKS (array)
+    if [[ -z "${WEBHOOK_URL:-}" ]] && [[ -z "${WEBHOOKS:-}" ]]; then
+        return 0
+    fi
     
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -159,9 +162,17 @@ send_discord_embed() {
 EOF
 )
     
-    for webhook in "${WEBHOOKS[@]}"; do
-        curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" &>/dev/null &
-    done
+    # Envoyer au webhook unique si défini
+    if [[ -n "${WEBHOOK_URL:-}" ]]; then
+        curl -s -H "Content-Type: application/json" -d "${payload}" "${WEBHOOK_URL}" &>/dev/null &
+    fi
+    
+    # Envoyer aux webhooks multiples si définis
+    if [[ -n "${WEBHOOKS:-}" ]]; then
+        for webhook in "${WEBHOOKS[@]}"; do
+            curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" &>/dev/null &
+        done
+    fi
 }
 
 discord_start() {

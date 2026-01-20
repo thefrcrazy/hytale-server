@@ -140,9 +140,16 @@ create_discord_conf() {
 #  HYTALE SERVER - DISCORD WEBHOOKS
 #===============================================================================
 
-# Webhook Discord (un seul supporté en mode sh)
-# Pour plusieurs webhooks, utilisez bash avec un array
+# Webhook Discord - Deux formats supportés:
+#
+# Option 1: Un seul webhook (recommandé)
 WEBHOOK_URL="https://discord.com/api/webhooks/VOTRE_WEBHOOK_ID/VOTRE_WEBHOOK_TOKEN"
+#
+# Option 2: Plusieurs webhooks (bash array)
+# WEBHOOKS=(
+#     "https://discord.com/api/webhooks/ID1/TOKEN1"
+#     "https://discord.com/api/webhooks/ID2/TOKEN2"
+# )
 
 # Couleurs des embeds (format décimal)
 COLOR_START="3066993"
