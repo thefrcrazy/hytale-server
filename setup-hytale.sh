@@ -867,21 +867,52 @@ cmd_update() {
     
     echo "📦 Version disponible: ${version}"
     
-    # Télécharger le nouveau setup-hytale.sh
-    setup_url="https://raw.githubusercontent.com/${GITHUB_REPO}/${version}/setup-hytale.sh"
+    # Détecter le répertoire d'installation
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
     
-    if curl -fsSL "${setup_url}" -o "$0.new"; then
-        mv "$0.new" "$0"
-        chmod +x "$0"
-        echo "✅ setup-hytale.sh mis à jour vers ${version}"
-        echo ""
-        echo "Pour réinstaller les scripts (configs préservées):"
-        echo "  ./setup-hytale.sh"
-    else
-        echo "❌ Échec du téléchargement"
-        rm -f "$0.new"
-        exit 1
+    # Liste des fichiers à mettre à jour
+    files_to_update="
+        setup-hytale.sh
+        hytale.sh
+        lib/utils.sh
+        scripts/update.sh
+        scripts/backup.sh
+        scripts/watchdog.sh
+        scripts/status-live.sh
+        scripts/hytale-auth.sh
+    "
+    
+    updated=0
+    failed=0
+    
+    for file in ${files_to_update}; do
+        url="https://raw.githubusercontent.com/${GITHUB_REPO}/${version}/${file}"
+        target="${SCRIPT_DIR}/${file}"
+        
+        # Créer le répertoire parent si nécessaire
+        mkdir -p "$(dirname "${target}")"
+        
+        if curl -fsSL "${url}" -o "${target}.new" 2>/dev/null; then
+            mv "${target}.new" "${target}"
+            chmod +x "${target}"
+            echo "  ✓ ${file}"
+            updated=$((updated + 1))
+        else
+            echo "  ✗ ${file} (non trouvé ou erreur)"
+            rm -f "${target}.new"
+            failed=$((failed + 1))
+        fi
+    done
+    
+    echo ""
+    echo "✅ Mise à jour terminée: ${updated} fichiers mis à jour"
+    
+    if [ ${failed} -gt 0 ]; then
+        echo "⚠️  ${failed} fichiers non mis à jour (probablement nouveaux fichiers)"
     fi
+    
+    echo ""
+    echo "Les configs (server.conf, discord.conf) sont préservées."
 }
 
 # ============== MAIN ==============
