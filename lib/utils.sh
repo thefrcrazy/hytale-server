@@ -350,8 +350,8 @@ send_discord_embed() {
     local color="$3"
     local footer="${4:-${SERVER_NAME}}"
     
-    # Support WEBHOOK_URL (single) ou WEBHOOKS (array)
-    if [[ -z "${WEBHOOK_URL:-}" ]] && [[ -z "${WEBHOOKS:-}" ]]; then
+    # Vérifier si des webhooks sont configurés
+    if [[ -z "${WEBHOOKS:-}" ]] || [[ ${#WEBHOOKS[@]} -eq 0 ]]; then
         return 0
     fi
     
@@ -361,29 +361,23 @@ send_discord_embed() {
     # Construire le payload JSON
     local payload='{"embeds":[{"title":"'"${title}"'","description":"'"${description}"'","color":'"${color}"',"timestamp":"'"${timestamp}"'","footer":{"text":"'"${footer}"'"}}]'
     
-    # Ajouter username personnalisé si défini
+    # Ajouter username si défini
     if [[ -n "${WEBHOOK_USERNAME:-}" ]]; then
-        payload="${payload%\}*},\"username\":\"${WEBHOOK_USERNAME}\""
+        payload="${payload}"',"username":"'"${WEBHOOK_USERNAME}"'"'
     fi
     
-    # Ajouter avatar personnalisé si défini
+    # Ajouter avatar si défini
     if [[ -n "${WEBHOOK_AVATAR_URL:-}" ]]; then
-        payload="${payload%\}*},\"avatar_url\":\"${WEBHOOK_AVATAR_URL}\""
+        payload="${payload}"',"avatar_url":"'"${WEBHOOK_AVATAR_URL}"'"'
     fi
     
+    # Fermer le JSON
     payload="${payload}}"
     
-    # Envoyer au webhook unique si défini
-    if [[ -n "${WEBHOOK_URL:-}" ]]; then
-        curl -s -H "Content-Type: application/json" -d "${payload}" "${WEBHOOK_URL}" &>/dev/null &
-    fi
-    
-    # Envoyer aux webhooks multiples si définis
-    if [[ -n "${WEBHOOKS:-}" ]]; then
-        for webhook in "${WEBHOOKS[@]}"; do
-            curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" &>/dev/null &
-        done
-    fi
+    # Envoyer à tous les webhooks
+    for webhook in "${WEBHOOKS[@]}"; do
+        curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" &>/dev/null &
+    done
 }
 
 # Éditer un message Discord existant (pour status live)
