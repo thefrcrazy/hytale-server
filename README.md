@@ -158,7 +158,10 @@ MIN_DISK_SPACE_GB=5
 ### Discord (`config/discord.conf`)
 
 ```bash
-WEBHOOK_URL="https://discord.com/api/webhooks/ID/TOKEN"
+# Array de webhooks (sans virgules !)
+WEBHOOKS=(
+    "https://discord.com/api/webhooks/ID/TOKEN"
+)
 WEBHOOK_USERNAME="Hytale Bot"
 ```
 
