@@ -90,6 +90,7 @@ t() {
                 "install_deps") echo "Installer les dépendances manquantes ?" ;;
                 "install_pigz") echo "Installer pigz (backups rapides) ?" ;;
                 "java_required") echo "Java 25+ requis" ;;
+                "java_path") echo "Chemin Java personnalisé" ;;
                 "continue_without") echo "Continuer sans Java ?" ;;
                 "config_done") echo "Configuration terminée" ;;
                 "files") echo "fichiers" ;;
@@ -140,6 +141,7 @@ t() {
                 "install_deps") echo "Install missing dependencies?" ;;
                 "install_pigz") echo "Install pigz (faster backups)?" ;;
                 "java_required") echo "Java 25+ required" ;;
+                "java_path") echo "Custom Java path" ;;
                 "continue_without") echo "Continue without Java?" ;;
                 "config_done") echo "Configuration complete" ;;
                 "files") echo "files" ;;
@@ -450,9 +452,22 @@ step_5_java() {
     
     java_ok=0
     java_info="Not installed"
+    CFG_JAVA_PATH=""
     
-    if command -v java >/dev/null 2>&1; then
-        java_version=$(java --version 2>&1 | head -n1 || echo "?")
+    # Charger config existante si disponible
+    if [ -f "${INSTALL_DIR}/config/server.conf" ]; then
+        . "${INSTALL_DIR}/config/server.conf" 2>/dev/null || true
+        CFG_JAVA_PATH="${JAVA_PATH:-}"
+    fi
+    
+    # Vérifier Java par défaut ou personnalisé
+    java_cmd="java"
+    if [ -n "${CFG_JAVA_PATH}" ] && [ -x "${CFG_JAVA_PATH}" ]; then
+        java_cmd="${CFG_JAVA_PATH}"
+    fi
+    
+    if command -v ${java_cmd} >/dev/null 2>&1 || [ -x "${java_cmd}" ]; then
+        java_version=$(${java_cmd} --version 2>&1 | head -n1 || echo "?")
         java_major=$(echo "${java_version}" | grep -oE '[0-9]+' | head -n1 || echo "0")
         
         printf "Version: ${java_version}\n"
@@ -469,7 +484,13 @@ step_5_java() {
         log_warn "$(t java_required)"
     fi
     
-    if [ ${java_ok} -eq 0 ]; then
+    # Demander le chemin personnalisé
+    echo ""
+    echo "$(t java_path) ($(t skip_empty))"
+    echo "$(t example): /usr/lib/jvm/temurin-25-jdk-amd64/bin/java"
+    CFG_JAVA_PATH=$(prompt "Java" "${CFG_JAVA_PATH}")
+    
+    if [ ${java_ok} -eq 0 ] && [ -z "${CFG_JAVA_PATH}" ]; then
         echo ""
         printf "Install Java 25: ${BOLD}https://adoptium.net/${NC}\n"
         echo ""
@@ -511,17 +532,21 @@ step_7_discord_config() {
     print_progress 7
     
     # Charger config existante si disponible
+    CFG_WEBHOOK=""
     if [ -f "${INSTALL_DIR}/config/discord.conf" ]; then
         . "${INSTALL_DIR}/config/discord.conf" 2>/dev/null || true
-        CFG_WEBHOOK_URL="${WEBHOOK_URL:-}"
+        # Récupérer le premier webhook si défini
+        if [ -n "${WEBHOOKS:-}" ] && [ ${#WEBHOOKS[@]} -gt 0 ]; then
+            CFG_WEBHOOK="${WEBHOOKS[0]}"
+        fi
         CFG_WEBHOOK_USERNAME="${WEBHOOK_USERNAME:-}"
     fi
     
     echo "$(t webhook_url) ($(t skip_empty))"
     echo "$(t example): https://discord.com/api/webhooks/123/abc"
-    CFG_WEBHOOK_URL=$(prompt "URL" "${CFG_WEBHOOK_URL}")
+    CFG_WEBHOOK=$(prompt "URL" "${CFG_WEBHOOK}")
     
-    if [ -n "${CFG_WEBHOOK_URL}" ]; then
+    if [ -n "${CFG_WEBHOOK}" ]; then
         echo ""
         echo "$(t webhook_user)"
         CFG_WEBHOOK_USERNAME=$(prompt "Bot name" "${CFG_WEBHOOK_USERNAME:-Hytale Bot}")
@@ -635,16 +660,36 @@ step_10_configure() {
             sed -i "s|^SERVER_NAME=.*|SERVER_NAME=\"${CFG_SERVER_NAME}\"|" "${config_file}" 2>/dev/null || true
             sed -i "s|^MAX_PLAYERS=.*|MAX_PLAYERS=\"${CFG_MAX_PLAYERS}\"|" "${config_file}" 2>/dev/null || true
         fi
+        # Configurer JAVA_PATH si spécifié
+        if [ -n "${CFG_JAVA_PATH}" ]; then
+            if [ "$(uname)" = "Darwin" ]; then
+                sed -i '' "s|^JAVA_PATH=.*|JAVA_PATH=\"${CFG_JAVA_PATH}\"|" "${config_file}" 2>/dev/null || true
+            else
+                sed -i "s|^JAVA_PATH=.*|JAVA_PATH=\"${CFG_JAVA_PATH}\"|" "${config_file}" 2>/dev/null || true
+            fi
+        fi
     fi
     
     # Appliquer la configuration à discord.conf
     discord_file="${INSTALL_DIR}/config/discord.conf"
-    if [ -f "${discord_file}" ] && [ -n "${CFG_WEBHOOK_URL}" ]; then
+    if [ -f "${discord_file}" ] && [ -n "${CFG_WEBHOOK}" ]; then
+        # Remplacer le bloc WEBHOOKS commenté par un bloc actif
         if [ "$(uname)" = "Darwin" ]; then
-            sed -i '' "s|^WEBHOOK_URL=.*|WEBHOOK_URL=\"${CFG_WEBHOOK_URL}\"|" "${discord_file}" 2>/dev/null || true
+            # Supprimer les anciennes lignes WEBHOOKS
+            sed -i '' '/^# WEBHOOKS=/d' "${discord_file}" 2>/dev/null || true
+            sed -i '' '/^WEBHOOKS=/d' "${discord_file}" 2>/dev/null || true
+            sed -i '' '/^#.*https:\/\/discord.com\/api\/webhooks/d' "${discord_file}" 2>/dev/null || true
+            sed -i '' '/^# )/d' "${discord_file}" 2>/dev/null || true
+            # Ajouter le nouveau WEBHOOKS après le header
+            sed -i '' "s|# Array de webhooks Discord.*|# Array de webhooks Discord\nWEBHOOKS=(\n    \"${CFG_WEBHOOK}\"\n)|" "${discord_file}" 2>/dev/null || true
             sed -i '' "s|^WEBHOOK_USERNAME=.*|WEBHOOK_USERNAME=\"${CFG_WEBHOOK_USERNAME}\"|" "${discord_file}" 2>/dev/null || true
         else
-            sed -i "s|^WEBHOOK_URL=.*|WEBHOOK_URL=\"${CFG_WEBHOOK_URL}\"|" "${discord_file}" 2>/dev/null || true
+            # Linux
+            sed -i '/^# WEBHOOKS=/d' "${discord_file}" 2>/dev/null || true
+            sed -i '/^WEBHOOKS=/d' "${discord_file}" 2>/dev/null || true
+            sed -i '/^#.*https:\/\/discord.com\/api\/webhooks/d' "${discord_file}" 2>/dev/null || true
+            sed -i '/^# )/d' "${discord_file}" 2>/dev/null || true
+            sed -i "s|# Array de webhooks Discord.*|# Array de webhooks Discord\nWEBHOOKS=(\n    \"${CFG_WEBHOOK}\"\n)|" "${discord_file}" 2>/dev/null || true
             sed -i "s|^WEBHOOK_USERNAME=.*|WEBHOOK_USERNAME=\"${CFG_WEBHOOK_USERNAME}\"|" "${discord_file}" 2>/dev/null || true
         fi
     fi
