@@ -395,9 +395,18 @@ step_6_download() {
     download_file "scripts/status-live.sh" "scripts/status-live.sh"
     download_file "scripts/hytale-auth.sh" "scripts/hytale-auth.sh"
     
-    # Config
-    download_file "config/server.conf" "config/server.conf"
-    download_file "config/discord.conf" "config/discord.conf"
+    # Config - ne pas écraser si existant
+    if [ ! -f "${INSTALL_DIR}/config/server.conf" ]; then
+        download_file "config/server.conf" "config/server.conf"
+    else
+        printf "  ${YELLOW}⊘${NC} config/server.conf (existant, conservé)\n"
+    fi
+    
+    if [ ! -f "${INSTALL_DIR}/config/discord.conf" ]; then
+        download_file "config/discord.conf" "config/discord.conf"
+    else
+        printf "  ${YELLOW}⊘${NC} config/discord.conf (existant, conservé)\n"
+    fi
     
     # Services
     download_file "services/hytale.service" "services/hytale.service"
