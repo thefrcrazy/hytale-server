@@ -198,10 +198,39 @@ cmd_start() {
     
     if is_running; then
         log_info "Serveur démarré avec succès (screen: ${SCREEN_NAME})"
+        discord_start
         
-        # Attendre que le serveur soit vraiment prêt
+        # Vérifier l'auth et notifier après délai
         (
-            sleep 30
+            sleep 15
+            
+            # Vérifier si l'auth est requise dans les logs
+            if [[ -f "${LOGS_DIR}/server.log" ]]; then
+                local recent_logs
+                recent_logs=$(tail -n 50 "${LOGS_DIR}/server.log" 2>/dev/null || echo "")
+                
+                if echo "${recent_logs}" | grep -qi "Server session token not available\|Server authentication unavailable\|Starting authenticated flow"; then
+                    # Auth requise - afficher message visible
+                    echo ""
+                    echo "============================================"
+                    echo "  🔐 AUTHENTIFICATION REQUISE"
+                    echo "============================================"
+                    echo ""
+                    echo "Le serveur attend une authentification OAuth2."
+                    echo ""
+                    echo "1. Accédez à la console: ./hytale.sh console"
+                    echo "2. Notez le code affiché"
+                    echo "3. Visitez: https://accounts.hytale.com/device"
+                    echo "4. Entrez le code pour valider"
+                    echo ""
+                    echo "============================================"
+                    
+                    # Envoyer notification Discord
+                    send_discord_embed "🔐 Authentification Requise" "Le serveur attend une authentification OAuth2.\\n\\n🔗 [Cliquez ici pour vous authentifier](https://accounts.hytale.com/device)" "${COLOR_RESTART}"
+                fi
+            fi
+            
+            sleep 15
             if is_running; then
                 discord_started
             fi
