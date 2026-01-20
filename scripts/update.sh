@@ -346,56 +346,14 @@ cmd_downloader_version() {
     ${DOWNLOADER_BIN} -version
 }
 
-cmd_update_scripts() {
-    log "INFO" "Récupération de la dernière version des scripts depuis GitHub..."
-    
-    GITHUB_REPO="thefrcrazy/hytale-server"
-    RELEASE_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
-    
-    # Le script est dans /scripts/, donc la racine est un niveau au-dessus
-    ROOT_DIR="$(dirname "${SCRIPT_DIR}")"
-    
-    # Récupérer les informations de la dernière release
-    release_info=$(curl -fsSL "${RELEASE_API}" 2>/dev/null)
-    
-    if [ -z "${release_info}" ]; then
-        log "ERROR" "Impossible de récupérer les informations de release depuis GitHub"
-        exit 1
-    fi
-    
-    # Extraire le tag de la version
-    version=$(echo "${release_info}" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
-    log "INFO" "Dernière version: ${version}"
-    
-    # Télécharger setup-hytale.sh depuis le raw GitHub
-    setup_url="https://raw.githubusercontent.com/${GITHUB_REPO}/${version}/setup-hytale.sh"
-    
-    log "INFO" "Téléchargement de setup-hytale.sh..."
-    
-    if curl -fsSL "${setup_url}" -o "${ROOT_DIR}/setup-hytale.sh.new"; then
-        # Remplacer l'ancien fichier
-        mv "${ROOT_DIR}/setup-hytale.sh.new" "${ROOT_DIR}/setup-hytale.sh"
-        chmod +x "${ROOT_DIR}/setup-hytale.sh"
-        log "INFO" "setup-hytale.sh mis à jour vers la version ${version}"
-        
-        echo ""
-        echo "Pour réinstaller les scripts (vos configs seront préservées):"
-        echo "  cd ${ROOT_DIR} && ./setup-hytale.sh"
-    else
-        log "ERROR" "Échec du téléchargement de setup-hytale.sh"
-        rm -f "${ROOT_DIR}/setup-hytale.sh.new"
-        exit 1
-    fi
-}
 
 show_help() {
     cat <<EOF
-Usage: $0 {download|check|update-scripts|update-downloader|pre-release|auth-reset|help}
+Usage: $0 {download|check|update-downloader|pre-release|auth-reset|help}
 
 Commandes:
     download             Télécharger le serveur
     check                Afficher les versions
-    update-scripts       Télécharger la dernière version des scripts depuis GitHub
     update-downloader    Mettre à jour hytale-downloader
     pre-release          Canal pre-release
     auth-reset           Réinitialiser l'authentification
@@ -419,9 +377,6 @@ case "${1:-help}" in
         ;;
     check)
         cmd_check_version
-        ;;
-    update-scripts)
-        cmd_update_scripts
         ;;
     update-downloader)
         cmd_update_downloader
