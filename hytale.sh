@@ -140,9 +140,16 @@ cmd_start() {
     fi
     
     if [[ ! -f "${SERVER_DIR}/${SERVER_JAR}" ]]; then
-        log_error "Fichier serveur introuvable: ${SERVER_DIR}/${SERVER_JAR}"
-        log_info "Téléchargez le serveur avec: ./scripts/update.sh download"
-        exit 1
+        log_warn "Serveur non trouvé, téléchargement automatique..."
+        if [[ -x "${SCRIPT_DIR}/scripts/update.sh" ]]; then
+            "${SCRIPT_DIR}/scripts/update.sh" download || {
+                log_error "Échec du téléchargement"
+                exit 1
+            }
+        else
+            log_error "Script de téléchargement introuvable: ${SCRIPT_DIR}/scripts/update.sh"
+            exit 1
+        fi
     fi
     
     if [[ ! -f "${ASSETS_PATH}" ]]; then

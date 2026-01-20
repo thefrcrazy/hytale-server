@@ -527,9 +527,10 @@ step_complete() {
     echo "Prochaines étapes :"
     echo ""
     printf "  1. ${CYAN}nano ${INSTALL_DIR}/config/server.conf${NC}\n"
-    printf "  2. ${CYAN}nano ${INSTALL_DIR}/config/discord.conf${NC}\n"
-    printf "  3. ${CYAN}cd ${INSTALL_DIR} && ./scripts/update.sh download${NC}\n"
-    printf "  4. ${CYAN}./hytale.sh start${NC}\n"
+    printf "  2. ${CYAN}nano ${INSTALL_DIR}/config/discord.conf${NC}  (optionnel)\n"
+    printf "  3. ${CYAN}cd ${INSTALL_DIR} && ./hytale.sh start${NC}\n"
+    echo ""
+    echo "Le serveur sera téléchargé automatiquement si nécessaire."
     echo ""
 }
 
