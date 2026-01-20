@@ -844,12 +844,14 @@ cmd_update() {
     GITHUB_REPO="thefrcrazy/hytale-server"
     RELEASE_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
     
-    # Récupérer la version
-    release_info=$(curl -fsSL "${RELEASE_API}" 2>/dev/null)
+    # Récupérer la version avec timeout
+    echo "   Connexion à GitHub..."
+    release_info=$(curl -fsSL --max-time 30 "${RELEASE_API}" 2>/dev/null)
     version=$(echo "${release_info}" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
     
     if [ -z "${version}" ]; then
         echo "❌ Impossible de récupérer les informations de version"
+        echo "   Vérifiez votre connexion internet."
         exit 1
     fi
     
@@ -857,8 +859,9 @@ cmd_update() {
     
     # Télécharger le nouveau setup-hytale.sh
     setup_url="https://raw.githubusercontent.com/${GITHUB_REPO}/${version}/setup-hytale.sh"
+    echo "   Téléchargement..."
     
-    if curl -fsSL "${setup_url}" -o "$0.new"; then
+    if curl -fsSL --max-time 60 "${setup_url}" -o "$0.new"; then
         mv "$0.new" "$0"
         chmod +x "$0"
         echo "✅ setup-hytale.sh mis à jour vers ${version}"
