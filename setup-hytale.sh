@@ -616,16 +616,21 @@ step_9_options() {
 step_10_configure() {
     printf "Applying configuration...\n"
     
+    # Générer un ID unique pour SCREEN_NAME basé sur le timestamp
+    SCREEN_ID=$(date +%s | tail -c 7)
+    
     # Appliquer la configuration à server.conf
     config_file="${INSTALL_DIR}/config/server.conf"
     if [ -f "${config_file}" ]; then
         if [ "$(uname)" = "Darwin" ]; then
             sed -i '' "s|__INSTALL_DIR__|${INSTALL_DIR}|g" "${config_file}" 2>/dev/null || true
+            sed -i '' "s|hytale_XXXXXX|hytale_${SCREEN_ID}|g" "${config_file}" 2>/dev/null || true
             sed -i '' "s|^BIND_ADDRESS=.*|BIND_ADDRESS=\"0.0.0.0:${CFG_PORT}\"|" "${config_file}" 2>/dev/null || true
             sed -i '' "s|^SERVER_NAME=.*|SERVER_NAME=\"${CFG_SERVER_NAME}\"|" "${config_file}" 2>/dev/null || true
             sed -i '' "s|^MAX_PLAYERS=.*|MAX_PLAYERS=\"${CFG_MAX_PLAYERS}\"|" "${config_file}" 2>/dev/null || true
         else
             sed -i "s|__INSTALL_DIR__|${INSTALL_DIR}|g" "${config_file}" 2>/dev/null || true
+            sed -i "s|hytale_XXXXXX|hytale_${SCREEN_ID}|g" "${config_file}" 2>/dev/null || true
             sed -i "s|^BIND_ADDRESS=.*|BIND_ADDRESS=\"0.0.0.0:${CFG_PORT}\"|" "${config_file}" 2>/dev/null || true
             sed -i "s|^SERVER_NAME=.*|SERVER_NAME=\"${CFG_SERVER_NAME}\"|" "${config_file}" 2>/dev/null || true
             sed -i "s|^MAX_PLAYERS=.*|MAX_PLAYERS=\"${CFG_MAX_PLAYERS}\"|" "${config_file}" 2>/dev/null || true
