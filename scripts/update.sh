@@ -25,6 +25,7 @@ ASSETS_DIR="${ASSETS_DIR:-${SCRIPT_DIR}/assets}"
 LOGS_DIR="${LOGS_DIR:-${SCRIPT_DIR}/logs}"
 PATCHLINE="${PATCHLINE:-release}"
 DOWNLOADER_URL="${DOWNLOADER_URL:-https://downloader.hytale.com/hytale-downloader.zip}"
+MIN_DISK_SPACE_GB="${MIN_DISK_SPACE_GB:-5}"
 
 TEMP_DIR="${SCRIPT_DIR}/.tmp"
 CREDENTIALS_FILE="${SCRIPT_DIR}/.hytale-downloader-credentials.json"
@@ -68,26 +69,53 @@ log() {
     echo "[${timestamp}] [${level}] ${msg}" >> "${LOGS_DIR}/update.log" 2>/dev/null
 }
 
+# Retourne l'espace disque disponible en GB
+get_available_disk_space_gb() {
+    path="${1:-${SCRIPT_DIR}}"
+    available_kb=$(df -k "${path}" 2>/dev/null | tail -1 | awk '{print $4}')
+    echo $((available_kb / 1024 / 1024))
+}
+
+# Vérifie si l'espace disque est suffisant
+check_disk_space() {
+    required_gb="${1:-${MIN_DISK_SPACE_GB}}"
+    available_gb=$(get_available_disk_space_gb "${SCRIPT_DIR}")
+    
+    if [ "${available_gb}" -lt "${required_gb}" ]; then
+        log "ERROR" "Espace disque insuffisant: ${available_gb}GB disponible, ${required_gb}GB requis"
+        return 1
+    fi
+    
+    log "INFO" "Espace disque OK: ${available_gb}GB disponible"
+    return 0
+}
+
 send_discord_update() {
     title="$1"
     description="$2"
     color="$3"
     
-    if [ -z "${WEBHOOKS:-}" ]; then
+    if [ -z "${WEBHOOK_URL:-}" ]; then
         return 0
     fi
     
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     server_name="${SERVER_NAME:-Hytale Updater}"
     
-    payload="{\"embeds\":[{\"title\":\"${title}\",\"description\":\"${description}\",\"color\":${color},\"timestamp\":\"${timestamp}\",\"footer\":{\"text\":\"${server_name}\"}}]}"
+    # Construire le payload
+    payload="{\"embeds\":[{\"title\":\"${title}\",\"description\":\"${description}\",\"color\":${color},\"timestamp\":\"${timestamp}\",\"footer\":{\"text\":\"${server_name}\"}}]"
     
-    # Envoyer à chaque webhook (support limité sans arrays)
-    echo "${WEBHOOKS}" | tr ' ' '\n' | while read -r webhook; do
-        if [ -n "${webhook}" ]; then
-            curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" >/dev/null 2>&1 &
-        fi
-    done
+    # Ajouter username/avatar si définis
+    if [ -n "${WEBHOOK_USERNAME:-}" ]; then
+        payload="${payload%\}*},\"username\":\"${WEBHOOK_USERNAME}\"}"
+    fi
+    if [ -n "${WEBHOOK_AVATAR_URL:-}" ]; then
+        payload="${payload%\}*},\"avatar_url\":\"${WEBHOOK_AVATAR_URL}\"}"
+    fi
+    
+    payload="${payload}}"
+    
+    curl -s -H "Content-Type: application/json" -d "${payload}" "${WEBHOOK_URL}" >/dev/null 2>&1 &
 }
 
 check_dependencies() {
@@ -158,6 +186,13 @@ ensure_downloader() {
 
 cmd_download() {
     check_dependencies
+    
+    # Vérifier l'espace disque (10GB recommandé pour le téléchargement)
+    if ! check_disk_space 10; then
+        log "ERROR" "Téléchargement annulé: espace disque insuffisant"
+        exit 1
+    fi
+    
     ensure_downloader
     
     log "INFO" "Téléchargement du serveur Hytale (patchline: ${PATCHLINE})..."
@@ -183,7 +218,7 @@ cmd_download() {
         echo ""
     fi
     
-    send_discord_update "📥 Téléchargement en cours" "Téléchargement du serveur Hytale..." "${COLOR_INFO:-3447003}"
+    send_discord_update "📥 Téléchargement en cours" "Téléchargement du serveur Hytale..." "${COLOR_MAINTENANCE:-9807270}"
     
     mkdir -p "${TEMP_DIR}"
     game_zip="${TEMP_DIR}/hytale-server.zip"
@@ -225,6 +260,8 @@ cmd_download() {
         rm -rf "${TEMP_DIR}"
         
         version=$(${DOWNLOADER_BIN} -print-version 2>/dev/null || echo "inconnue")
+        # Sauvegarder la version installée
+        echo "${version}" > "${SCRIPT_DIR}/.installed_version"
         log "INFO" "Installation terminée. Version: ${version}"
         send_discord_update "✅ Serveur Téléchargé" "Version ${version} installée." "${COLOR_SUCCESS:-3066993}"
     else
@@ -238,28 +275,35 @@ cmd_download() {
 cmd_check_version() {
     ensure_downloader
     
-    echo "============================================"
-    echo "   VERSIONS HYTALE"
-    echo "============================================"
+    echo "=== VERSIONS ==="
     
     remote_version=$(${DOWNLOADER_BIN} -print-version 2>/dev/null || echo "N/A")
-    echo "Version disponible: ${remote_version}"
+    echo "Disponible: ${remote_version}"
     
-    if [ -f "${SERVER_DIR}/HytaleServer.jar" ]; then
-        echo "Serveur installé:   Oui"
-    else
-        echo "Serveur installé:   Non"
+    # Lire la version installée depuis le fichier
+    installed_version="Non installé"
+    if [ -f "${SCRIPT_DIR}/.installed_version" ]; then
+        installed_version=$(cat "${SCRIPT_DIR}/.installed_version" 2>/dev/null || echo "Inconnue")
+    elif [ -f "${SERVER_DIR}/HytaleServer.jar" ]; then
+        installed_version="Inconnue (fichier version manquant)"
     fi
+    echo "Installé: ${installed_version}"
     
-    echo "Patchline:          ${PATCHLINE}"
-    echo "Downloader:         ${DOWNLOADER_BIN}"
+    # Afficher espace disque
+    echo "Espace disque: $(get_available_disk_space_gb)GB disponible"
     
-    if [ -f "${CREDENTIALS_FILE}" ]; then
-        echo "Credentials:        Oui"
-    else
-        echo "Credentials:        Non"
+    # Vérifier si une mise à jour est disponible
+    if [ "${installed_version}" != "Non installé" ] && [ "${installed_version}" != "Inconnue (fichier version manquant)" ]; then
+        if [ "${installed_version}" != "${remote_version}" ] && [ "${remote_version}" != "N/A" ]; then
+            echo ""
+            echo "⚠️  Une mise à jour est disponible!"
+            return 1
+        else
+            echo ""
+            echo "✅ Le serveur est à jour."
+            return 0
+        fi
     fi
-    echo "============================================"
 }
 
 cmd_update_downloader() {
@@ -302,18 +346,61 @@ cmd_downloader_version() {
     ${DOWNLOADER_BIN} -version
 }
 
+cmd_update_scripts() {
+    log "INFO" "Récupération de la dernière version des scripts depuis GitHub..."
+    
+    GITHUB_REPO="thefrcrazy/hytale-server"
+    RELEASE_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+    
+    # Récupérer les informations de la dernière release
+    release_info=$(curl -fsSL "${RELEASE_API}" 2>/dev/null)
+    
+    if [ -z "${release_info}" ]; then
+        log "ERROR" "Impossible de récupérer les informations de release depuis GitHub"
+        exit 1
+    fi
+    
+    # Extraire le tag de la version
+    version=$(echo "${release_info}" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+    log "INFO" "Dernière version: ${version}"
+    
+    # Télécharger setup-hytale.sh depuis le raw GitHub
+    setup_url="https://raw.githubusercontent.com/${GITHUB_REPO}/${version}/setup-hytale.sh"
+    
+    log "INFO" "Téléchargement de setup-hytale.sh..."
+    
+    if curl -fsSL "${setup_url}" -o "${SCRIPT_DIR}/setup-hytale.sh.new"; then
+        # Remplacer l'ancien fichier
+        mv "${SCRIPT_DIR}/setup-hytale.sh.new" "${SCRIPT_DIR}/setup-hytale.sh"
+        chmod +x "${SCRIPT_DIR}/setup-hytale.sh"
+        log "INFO" "setup-hytale.sh mis à jour vers la version ${version}"
+        
+        echo ""
+        echo "Pour réinstaller les scripts (vos configs seront préservées):"
+        echo "  ./setup-hytale.sh"
+    else
+        log "ERROR" "Échec du téléchargement de setup-hytale.sh"
+        rm -f "${SCRIPT_DIR}/setup-hytale.sh.new"
+        exit 1
+    fi
+}
+
 show_help() {
     cat <<EOF
-Usage: $0 {download|check|update-downloader|pre-release|auth-reset|downloader-version|help}
+Usage: $0 {download|check|update-scripts|update-downloader|pre-release|auth-reset|help}
 
 Commandes:
     download             Télécharger le serveur
     check                Afficher les versions
+    update-scripts       Télécharger la dernière version des scripts depuis GitHub
     update-downloader    Mettre à jour hytale-downloader
     pre-release          Canal pre-release
     auth-reset           Réinitialiser l'authentification
     downloader-version   Version du downloader
     help                 Cette aide
+
+Configuration (config/server.conf):
+    MIN_DISK_SPACE_GB=${MIN_DISK_SPACE_GB} (espace minimum requis)
 
 Authentification OAuth2:
     Première utilisation: suivez les instructions affichées.
@@ -329,6 +416,9 @@ case "${1:-help}" in
         ;;
     check)
         cmd_check_version
+        ;;
+    update-scripts)
+        cmd_update_scripts
         ;;
     update-downloader)
         cmd_update_downloader

@@ -7,7 +7,7 @@ Type=oneshot
 User=hytale
 Group=hytale
 WorkingDirectory=/opt/hytale
-ExecStart=/opt/hytale/backup.sh create
+ExecStart=/opt/hytale/scripts/backup.sh create
 
 # Timeout pour les gros backups
 TimeoutStartSec=600

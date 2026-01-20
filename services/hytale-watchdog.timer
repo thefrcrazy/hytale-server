@@ -1,0 +1,12 @@
+[Unit]
+Description=Hytale Watchdog Timer
+Requires=hytale-watchdog.service
+
+[Timer]
+# Exécuter toutes les 2 minutes
+OnCalendar=*:0/2
+# Persistance
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -6,92 +6,63 @@
 
 set -eu
 
-# ============== CHARGEMENT CONFIGURATION ==============
+# ============== CHARGEMENT BIBLIOTHÈQUE COMMUNE ==============
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_DIR="${SCRIPT_DIR}/config"
 
-# Charger la configuration principale
-source "${CONFIG_DIR}/server.conf" 2>/dev/null || true
-
-# Charger la configuration Discord
-source "${CONFIG_DIR}/discord.conf" 2>/dev/null || true
-
-# Valeurs par défaut si non définies
-: "${LOGS_DIR:=${SCRIPT_DIR}/logs}"
-: "${SCREEN_NAME:=hytale}"
+if [[ -f "${SCRIPT_DIR}/lib/utils.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/utils.sh"
+else
+    echo "[ERROR] Bibliothèque lib/utils.sh introuvable. Exécutez ./setup-hytale.sh"
+    exit 1
+fi
 
 AUTH_STATE_FILE="${CONFIG_DIR}/.auth_state"
 
 # ============== FONCTIONS ==============
-
-log() {
-    local level="$1"
-    shift
-    local msg="$*"
-    local timestamp
-    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${timestamp}] [${level}] ${msg}"
-}
 
 send_discord_auth() {
     local title="$1"
     local description="$2"
     local color="$3"
     
-    [[ -z "${WEBHOOKS:-}" ]] && return 0
+    [[ -z "${WEBHOOK_URL:-}" ]] && return 0
     
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
     local payload
-    payload=$(cat <<EOF
-{
-    "embeds": [{
-        "title": "${title}",
-        "description": "${description}",
-        "color": ${color},
-        "timestamp": "${timestamp}",
-        "footer": {
-            "text": "${SERVER_NAME:-Hytale Auth System}"
-        },
-        "fields": [
-            {
-                "name": "🔗 Lien d'authentification",
-                "value": "[accounts.hytale.com/device](https://accounts.hytale.com/device)",
-                "inline": false
-            }
-        ]
-    }]
-}
-EOF
-)
+    payload="{\"embeds\":[{\"title\":\"${title}\",\"description\":\"${description}\",\"color\":${color},\"timestamp\":\"${timestamp}\",\"footer\":{\"text\":\"${SERVER_NAME:-Hytale Auth System}\"},\"fields\":[{\"name\":\"🔗 Lien d'authentification\",\"value\":\"[accounts.hytale.com/device](https://accounts.hytale.com/device)\",\"inline\":false}]}]"
     
-    for webhook in "${WEBHOOKS[@]}"; do
-        curl -s -H "Content-Type: application/json" -d "${payload}" "${webhook}" &>/dev/null &
-    done
+    # Ajouter username/avatar si définis
+    if [[ -n "${WEBHOOK_USERNAME:-}" ]]; then
+        payload="${payload%\}*},\"username\":\"${WEBHOOK_USERNAME}\"}"
+    fi
+    if [[ -n "${WEBHOOK_AVATAR_URL:-}" ]]; then
+        payload="${payload%\}*},\"avatar_url\":\"${WEBHOOK_AVATAR_URL}\"}"
+    fi
+    
+    payload="${payload}}"
+    
+    curl -s -H "Content-Type: application/json" -d "${payload}" "${WEBHOOK_URL}" &>/dev/null &
 }
 
 check_auth_status() {
-    # Vérifier si le serveur est authentifié en regardant les logs
     local log_file="${LOGS_DIR}/server.log"
     
     if [[ -f "${log_file}" ]]; then
         local recent_logs
         recent_logs=$(tail -n 100 "${log_file}" 2>/dev/null)
 
-        # Vérifier explicitement les erreurs d'authentification
         if echo "$recent_logs" | grep -qi "Server session token not available\|Server authentication unavailable"; then
-            return 1  # Échec d'authentification détecté
+            return 1
         fi
 
-        # Chercher des indicateurs d'authentification réussie
-        # On exclut "Starting authenticated flow" qui contient "authenticated" mais n'est pas une preuve de succès
         if echo "$recent_logs" | grep -v "Starting authenticated flow" | grep -qi "authenticated\|auth.*success\|license.*valid"; then
-            return 0  # Authentifié
+            return 0
         fi
     fi
     
-    return 1  # Non authentifié ou inconnu
+    return 1
 }
 
 get_last_auth_date() {
@@ -134,28 +105,27 @@ cmd_status() {
 }
 
 cmd_remind() {
-    log "INFO" "Envoi d'un rappel d'authentification sur Discord..."
+    log_info "Envoi d'un rappel d'authentification sur Discord..."
     
     local last_auth
     last_auth=$(get_last_auth_date)
     
     send_discord_auth \
         "🔑 Rappel d'Authentification Hytale" \
-        "N'oubliez pas de vérifier que votre serveur Hytale est authentifié.\n\nDernière authentification: ${last_auth}" \
-        "${COLOR_RESTART:-15844367}"
+        "N'oubliez pas de vérifier que votre serveur Hytale est authentifié.\\n\\nDernière authentification: ${last_auth}" \
+        "${COLOR_RESTART}"
     
-    log "INFO" "Rappel envoyé."
+    log_info "Rappel envoyé."
 }
 
 cmd_trigger() {
-    # Déclencher l'authentification via la console du serveur
-    if ! screen -list | grep -q "\.${SCREEN_NAME}[[:space:]]"; then
-        log "ERROR" "Le serveur n'est pas en cours d'exécution."
-        log "INFO" "Démarrez le serveur avec: ./hytale.sh start"
+    if ! is_running; then
+        log_error "Le serveur n'est pas en cours d'exécution."
+        log_info "Démarrez le serveur avec: ./hytale.sh start"
         exit 1
     fi
     
-    log "INFO" "Envoi de la commande /auth login device..."
+    log_info "Envoi de la commande /auth login device..."
     screen -S "${SCREEN_NAME}" -p 0 -X stuff "/auth login device$(printf '\r')"
     
     echo ""
@@ -170,23 +140,22 @@ cmd_trigger() {
     echo ""
     echo "============================================"
     
-    # Notification Discord
     send_discord_auth \
         "🔐 Authentification Requise" \
         "Une authentification OAuth2 a été initiée. Veuillez compléter le processus dans les 15 prochaines minutes." \
-        "${COLOR_INFO:-3447003}"
+        "${COLOR_INFO}"
 }
 
 cmd_confirm() {
-    log "INFO" "Confirmation de l'authentification..."
+    log_info "Confirmation de l'authentification..."
     set_auth_date
     
     send_discord_auth \
         "✅ Authentification Réussie" \
         "Le serveur Hytale a été authentifié avec succès." \
-        "${COLOR_SUCCESS:-3066993}"
+        "${COLOR_SUCCESS}"
     
-    log "INFO" "Authentification confirmée et enregistrée."
+    log_info "Authentification confirmée et enregistrée."
 }
 
 cmd_setup_cron() {
@@ -250,7 +219,7 @@ case "${1:-help}" in
         show_help
         ;;
     *)
-        log "ERROR" "Commande inconnue: $1"
+        log_error "Commande inconnue: $1"
         show_help
         exit 1
         ;;

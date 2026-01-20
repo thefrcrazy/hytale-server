@@ -1,0 +1,21 @@
+[Unit]
+Description=Hytale Watchdog Service
+After=hytale.service
+
+[Service]
+Type=oneshot
+User=hytale
+Group=hytale
+WorkingDirectory=/opt/hytale
+ExecStart=/opt/hytale/scripts/watchdog.sh check
+
+# Sécurité
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/hytale
+
+# Journalisation
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hytale-watchdog
