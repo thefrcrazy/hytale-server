@@ -141,6 +141,17 @@ cmd_start() {
     
     if [[ ! -f "${SERVER_DIR}/${SERVER_JAR}" ]]; then
         log_warn "Serveur non trouvé, téléchargement automatique..."
+        echo ""
+        echo "============================================"
+        echo "  TÉLÉCHARGEMENT DU SERVEUR"
+        echo "============================================"
+        echo ""
+        echo "Si c'est la première fois, une authentification"
+        echo "OAuth2 sera requise (voir instructions ci-dessous)."
+        echo ""
+        echo "============================================"
+        echo ""
+        
         if [[ -x "${SCRIPT_DIR}/scripts/update.sh" ]]; then
             "${SCRIPT_DIR}/scripts/update.sh" download || {
                 log_error "Échec du téléchargement"
