@@ -178,7 +178,6 @@ cmd_start() {
     fi
     
     log_info "$(t server_starting)"
-    discord_start
     
     # Construction de la commande
     local cmd="${JAVA_CMD} ${JAVA_OPTS}"
