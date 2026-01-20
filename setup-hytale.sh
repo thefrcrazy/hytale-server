@@ -419,11 +419,11 @@ step_7_configure() {
     
     printf "Configuration en cours...\n"
     
-    # server.conf
+    # server.conf - remplacer __INSTALL_DIR__ par le vrai chemin
     if [ "$(uname)" = "Darwin" ]; then
-        sed -i '' "s|^INSTALL_DIR=.*|INSTALL_DIR=\"${INSTALL_DIR}\"|" "${INSTALL_DIR}/config/server.conf" 2>/dev/null || true
+        sed -i '' "s|__INSTALL_DIR__|${INSTALL_DIR}|g" "${INSTALL_DIR}/config/server.conf" 2>/dev/null || true
     else
-        sed -i "s|^INSTALL_DIR=.*|INSTALL_DIR=\"${INSTALL_DIR}\"|" "${INSTALL_DIR}/config/server.conf" 2>/dev/null || true
+        sed -i "s|__INSTALL_DIR__|${INSTALL_DIR}|g" "${INSTALL_DIR}/config/server.conf" 2>/dev/null || true
     fi
     
     # Services systemd
